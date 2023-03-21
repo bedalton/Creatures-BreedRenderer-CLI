@@ -19,13 +19,15 @@ val creaturesCommonVersion: String by project
 val creaturesCommonCLIVersion: String by project
 val creaturesSpriteUtilVersion: String by project
 val creaturesRendererVersion: String by project
+val creaturesC2EggParserVersion: String by project
+val creaturesPrayDataVersion: String by project
 
 // Libs
 val bedaltonCommonCoreVersion: String by project
 val bedaltonLocalFilesVersion: String by project
 val bedaltonAppSupportVersion: String by project
 val bedaltonCommonLogVersion: String by project
-val bedaltonByteUtilVersion: String by project
+val bedaltonCommonByteVersion: String by project
 val bedaltonCommonCoroutinesVersion: String by project
 val korImagesVersion: String by project
 
@@ -151,12 +153,15 @@ kotlin {
 
                 implementation("bedalton.creatures:breed-renderer:$creaturesRendererVersion")
                 implementation("bedalton.creatures:creatures-common-cli:$creaturesCommonCLIVersion")
+                implementation("bedalton.creatures:c2-egg-parser:$creaturesC2EggParserVersion")
+                implementation("bedalton.creatures:pray-data:$creaturesPrayDataVersion")
 
                 implementation("com.bedalton:common-core:$bedaltonCommonCoreVersion")
                 implementation("com.bedalton:app-support:$bedaltonAppSupportVersion")
                 implementation("com.bedalton:common-coroutines:$bedaltonCommonCoroutinesVersion")
                 implementation("com.bedalton:common-log:$bedaltonCommonLogVersion")
                 implementation("com.bedalton:local-files:$bedaltonLocalFilesVersion")
+                implementation("com.bedalton:common-byte:$bedaltonCommonByteVersion")
 
             }
         }
