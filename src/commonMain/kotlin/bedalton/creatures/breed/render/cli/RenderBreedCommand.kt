@@ -1,5 +1,7 @@
 package bedalton.creatures.breed.render.cli
 
+import bedalton.creatures.agents.pray.data.DataBlock
+import bedalton.creatures.agents.pray.parser.parsePrayAgentToMemory
 import bedalton.creatures.breed.render.cli.internal.*
 import bedalton.creatures.breed.render.cli.internal.getIncrementalFileStart
 import bedalton.creatures.breed.render.cli.internal.resolvePose
@@ -12,6 +14,7 @@ import bedalton.creatures.common.util.*
 import com.bedalton.app.exitNativeWithError
 import com.bedalton.app.getCurrentWorkingDirectory
 import com.bedalton.cli.Flag
+import com.bedalton.cli.unescapeCLIPathAndQualify
 import com.bedalton.common.coroutines.mapAsync
 import com.bedalton.common.util.*
 import com.bedalton.log.LOG_DEBUG
@@ -24,8 +27,6 @@ import kotlinx.cli.*
 import kotlinx.coroutines.*
 import kotlin.random.Random
 
-
-private const val DEFAULT_FILE_NAME = "render"
 
 class RenderBreedCommand : Subcommand("render", "Render a creature with breed options") {
 
@@ -227,6 +228,14 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
         description = "Use non-C2e limb z-order to prevent limb parts rendering both above and below another"
     ).default(false)
 
+
+    private val genomePath by option(
+        ArgType.String,
+        "genome",
+        description = "Genetics file or C2 egg file"
+    )
+
+
     override fun execute() {
         GlobalScope.launch {
             executeSuspending()
@@ -281,12 +290,10 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
 
         // Combine the sources which are both globbed files, and folders
         val sources = getSourceFolders(currentWorkingDirectory)
-        Log.iIf(LOG_DEBUG) { "Command running with ${sources.size} source paths;" }
 
         // Create initial builder
         val task = BreedRendererBuilder(gameVariant)
-            .withSourceRoots(sources)
-            .applyBreeds()
+            .withSourceRoots(sourcesFinal)
             .withFallbackGender(gender)
             .withAge(age)
             .withGhostParts(ghost.flatten())
@@ -298,6 +305,11 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
             .withNonIntersectingLimbs(nonIntersectingLimbs)
             .withPadding(padding)
             .applySwapAndRotation()
+
+
+        if (genomePath?.lowercase()?.let { it.endsWith("agent") || it.endsWith("agents") } == true) {
+
+        }
 
 
         // Get out base path. Could be a file or a folder
@@ -341,7 +353,7 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
         val outFsPath = if (LocalFileSystem?.isDirectory(out) == true) {
             out
         } else {
-            FileNameUtil.getWithoutLastPathComponent(out)
+            PathUtil.getWithoutLastPathComponent(out)
         }
 
         val fs = ScopedFileSystem(
@@ -571,48 +583,104 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
 }
 
 
-private fun exitWithError(code: Int, vararg args: Any, stackTrace: String? = null): Nothing {
-    if (Log.hasMode(LOG_DEBUG) && stackTrace != null) {
-        exitNativeWithError(code, getErrorMessage(code, *args) + "\n$stackTrace")
-    } else {
-        exitNativeWithError(code, getErrorMessage(code, *args) + (stackTrace?.let { "\n$it" } ?: ""))
-    }
-}
+
+private suspend fun constructFileSystem(rawSourcesList: List<String>, currentWorkingDirectory: String?, genomePathIn: String?): SourceFiles {
+    Log.iIf(LOG_DEBUG) { "Command running with ${rawSourcesList.size} source paths;" }
 
 
-private suspend fun getFileName(
-    localVFS: FileSystem,
-    out: String,
-    i: Int,
-    isMultiPose: Boolean,
-    increment: Boolean
-): String {
-    if (isMultiPose && !increment) {
-        return if (out.lowercase().endsWith(".png")) {
-            out
-        } else if (localVFS.isDirectory(out)) {
-            PathUtil.combine(out, DEFAULT_FILE_NAME)
-        } else {
-            "$out.png"
+    val aliasPathPattern = "\\[([^\\]]+)\\]=(.+)".toRegex()
+    val sourceRootDirectories = rawSourcesList.map {
+        val path = aliasPathPattern.matchEntire(it)
+            ?.groupValues
+            ?.getOrNull(2)
+            ?: it
+        PathUtil.getWithoutLastPathComponent(path) ?: path
+    }.distinct()
+    val fsPhysical = ScopedFileSystem(sourceRootDirectories)
+    val aliasedPaths = rawSourcesList.mapNotNull map@{
+        val parts = aliasPathPattern
+            .matchEntire(it)
+            ?.groupValues
+            ?.drop(1)
+            ?: return@map null
+        var alias = parts[0]
+        if (!alias.startsWith('/')) {
+            alias = "/$alias"
         }
+        AliasedFile(
+            fsPhysical,
+            alias,
+            parts[1],
+            null
+        )
     }
-    val prefix =
-        if (out.endsWith(".png")) {
-            PathUtil.combine(
-                FileNameUtil.getWithoutLastPathComponent(out) ?: "",
-                (FileNameUtil.getFileNameWithoutExtension(out) ?: DEFAULT_FILE_NAME)
-            )
-        } else {
-            if (localVFS.isDirectory(out)) {
-                PathUtil.combine(out, DEFAULT_FILE_NAME)
-            } else {
-                out
+
+
+    val genomePath: String? = genomePathIn?.expandTildeIfNecessary()?.let { path ->
+        if (!PathUtil.isAbsolute(path)) {
+            if (currentWorkingDirectory == null) {
+                throw Exception("Failed to get current working directory to qualify genome path")
             }
+            unescapeCLIPathAndQualify(path, currentWorkingDirectory)
+                ?: throw Exception("Faile to qualify genome path; Genome File: $path; Current Directory: $currentWorkingDirectory")
+        } else {
+            path
         }
+    }
 
-    var temp: String
-    do {
-        temp = "$prefix.$i.png"
-    } while (increment && localVFS.fileExists(temp))
-    return temp
+    val sourcesWithAliasedNames = rawSourcesList.filterNot(aliasPathPattern::matches) + aliasedPaths.map { it.path }
+
+
+    val fs = FileSystemWithInputFiles(
+        fsPhysical,
+        aliasedPaths.associateBy { it.path },
+        matchFileNameOnly = true
+    )
+
+    val agentFiles = getAgentFiles(fs, sourcesWithAliasedNames)
+
+    val genomeFiles = if (genomePath != null) {
+        if (PathUtil.getExtension(genomePath)?.lowercase()?.let { it == "agents" || it == "agent" } == true) {
+            val fileName = PathUtil.getLastPathComponent(genomePath)?.lowercase()
+            val theFiles = agentFiles.firstOrNull { it.first like genomePath }?.second ?: agentFiles.firstOrNull { PathUtil.getFileNameWithoutExtension(it.first)?.lowercase() == fileName }?.second
+            theFiles?.filter { PathUtil.getExtension(it.name) like "gen" }?.map { it.name }
+        } else {
+            listOf(genomePath)
+        }
+    } else {
+        null
+    }
+    return SourceFiles(
+        fs,
+        sources = sourcesWithAliasedNames,
+        genomeFiles = genomeFiles
+    )
 }
+
+
+private suspend fun getAgentFiles(fs: FileSystem, allFiles: List<String>): List<Pair<String, List<File>>> {
+
+    // Get agent files
+    val agents = allFiles.filter { it.lowercase().endsWith("agent") || it.lowercase().endsWith("agents") }
+    return agents.mapAsync { path ->
+        if (fs.fileExists(path)) {
+            val bytes = fs.read(path)
+            val result = parsePrayAgentToMemory(bytes, whitelist = arrayOf("FILE"), true)
+            path to result.blocks.filterIsInstance<DataBlock>().filter { it.blockTag.lowercase() == "FILE" }.mapAsync {
+                BinaryFile(
+                    it.blockName,
+                    it.data()
+                )
+            }
+        } else {
+            null
+        }
+    }.filterNotNull()
+}
+
+
+private data class SourceFiles(
+    val fs: FileSystem,
+    val sources: List<String>,
+    val genomeFiles: List<String>?,
+)

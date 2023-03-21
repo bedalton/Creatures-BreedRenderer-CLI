@@ -1,14 +1,14 @@
 package bedalton.creatures.breed.render.cli.internal
 
-import com.bedalton.common.util.FileNameUtil
+import com.bedalton.common.util.PathUtil
 import com.bedalton.common.util.PathUtil
 import com.bedalton.vfs.FileSystem
 
 internal suspend fun getIncrementalFileStart(localVFS: FileSystem, out: String, poseCount: Int): Int {
     val prefix = if (out.endsWith("png")) {
         PathUtil.combine(
-            FileNameUtil.getWithoutLastPathComponent(out) ?: "",
-            (FileNameUtil.getFileNameWithoutExtension(out) ?: "render")
+            PathUtil.getWithoutLastPathComponent(out) ?: "",
+            (PathUtil.getFileNameWithoutExtension(out) ?: "render")
         )
     } else {
         out
