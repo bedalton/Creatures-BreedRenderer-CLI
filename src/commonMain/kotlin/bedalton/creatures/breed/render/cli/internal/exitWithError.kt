@@ -1,6 +1,5 @@
 package bedalton.creatures.breed.render.cli.internal
 
-import bedalton.creatures.breed.render.cli.getErrorMessage
 import com.bedalton.app.exitNativeWithError
 import com.bedalton.log.LOG_DEBUG
 import com.bedalton.log.Log
