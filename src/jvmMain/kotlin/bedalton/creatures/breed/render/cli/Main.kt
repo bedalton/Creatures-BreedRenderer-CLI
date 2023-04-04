@@ -1,4 +1,5 @@
-import bedalton.creatures.breed.render.cli.runMain
+package bedalton.creatures.breed.render.cli
+
 import com.bedalton.common.coroutines.BackgroundDispatcher
 import kotlinx.coroutines.runBlocking
 

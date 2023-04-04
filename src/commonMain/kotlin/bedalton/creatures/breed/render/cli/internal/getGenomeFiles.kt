@@ -6,7 +6,9 @@ import bedalton.creatures.genetics.genome.Genome
 import bedalton.creatures.genetics.parser.GenomeParser
 import com.bedalton.app.exitNativeWithError
 import com.bedalton.cli.unescapeCLIPathAndQualify
-import com.bedalton.common.util.*
+import com.bedalton.common.util.PathUtil
+import com.bedalton.common.util.joinToString
+import com.bedalton.common.util.pathSeparator
 import com.bedalton.io.bytes.ByteStreamReader
 import com.bedalton.log.LOG_DEBUG
 import com.bedalton.log.Log
@@ -15,7 +17,6 @@ import com.bedalton.log.wIf
 import com.bedalton.vfs.ERROR_CODE__BAD_INPUT_FILE
 import com.bedalton.vfs.File
 import com.bedalton.vfs.expandTildeIfNecessary
-import kotlin.math.abs
 import kotlin.random.Random
 
 internal fun getGenomeFiles(
