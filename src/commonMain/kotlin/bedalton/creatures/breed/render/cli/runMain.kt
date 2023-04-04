@@ -6,9 +6,7 @@ import com.bedalton.app.exitNativeWithError
 import com.bedalton.app.setIsCLI
 import com.bedalton.common.util.className
 import com.bedalton.common.util.like
-import com.bedalton.log.LOG_DEBUG
 import com.bedalton.log.Log
-import com.bedalton.log.iIf
 
 suspend fun runMain(args: Array<String>): Int {
     setIsCLI(true)
