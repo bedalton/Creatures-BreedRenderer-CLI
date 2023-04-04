@@ -3,21 +3,19 @@ package bedalton.creatures.breed.render.cli.internal
 import bedalton.creatures.breed.render.support.pose.*
 import bedalton.creatures.common.structs.GameVariant
 import bedalton.creatures.common.structs.isC1e
-import com.soywiz.klock.DateTime
 import kotlin.random.Random
 
-val random = Random(DateTime.now().seconds)
-val randomTrueFalse = (random.nextInt(0, 100) % 2) == 0
+val randomTrueFalse = (Random.nextInt(0, 100) % 2) == 0
 
 internal fun randomPose(variant: GameVariant, facingConstraint: PoseFacing? = null): Pose {
-    val bodyFacing = facingConstraint ?: (when (random.nextInt(0, 9)) {
+    val bodyFacing = facingConstraint ?: (when (Random.nextInt(0, 9)) {
         0, 1 -> PoseFacing.FRONT
         2 -> PoseFacing.BACK
         3,4,5 -> PoseFacing.VIEWER_LEFT
         6,7,8 -> PoseFacing.VIEWER_RIGHT
         else -> throw PoseException("Invalid random facing direction")
     })
-    val headAgrees = (random.nextInt(0, 100) % 2) == 0
+    val headAgrees = (Random.nextInt(0, 100) % 2) == 0
     val headFacing = if (headAgrees) {
         bodyFacing
     } else {
@@ -40,7 +38,7 @@ internal fun randomPose(variant: GameVariant, facingConstraint: PoseFacing? = nu
         }
     }
 
-    val body = (when (random.nextInt(0, 8)) {
+    val body = (when (Random.nextInt(0, 8)) {
         0 -> Tilt.DOWN
         1 -> Tilt.STRAIGHT
         2,3,4 -> Tilt.UP
@@ -86,9 +84,9 @@ private fun getArm(): Pair<Tilt, Tilt> {
     if (upperArm == Tilt.FAR_UP) {
         return Pair(upperArm, Tilt.FAR_UP)
     } else if (upperArm == Tilt.UP) {
-        return Pair(upperArm, Tilt.fromChar('2' + random.nextInt(0, 2))!!)
+        return Pair(upperArm, Tilt.fromChar('2' + Random.nextInt(0, 2))!!)
     } else if (upperArm == Tilt.STRAIGHT){
-        return Pair(upperArm, Tilt.fromChar('1' + random.nextInt(0,3))!!)
+        return Pair(upperArm, Tilt.fromChar('1' + Random.nextInt(0,3))!!)
     } else if (upperArm == Tilt.DOWN) {
         return Pair(upperArm, getRandomTilt())
     } else {
@@ -96,34 +94,34 @@ private fun getArm(): Pair<Tilt, Tilt> {
     }
 }
 
-private fun eyesClosed(): Boolean = (random.nextInt(0,99) % 3) == 2
+private fun eyesClosed(): Boolean = (Random.nextInt(0,99) % 3) == 2
 
 private fun mood(variant: GameVariant): Mood {
     return if (variant.isC1e) {
-        Mood.fromInt(random.nextInt(0, 4))!!
+        Mood.fromInt(Random.nextInt(0, 4))!!
     } else {
-        Mood.fromInt(random.nextInt(0, 6))!!
+        Mood.fromInt(Random.nextInt(0, 6))!!
     }
 }
 
 private fun getLeg():Triple<Tilt, Tilt, Tilt> {
     val thigh = getRandomTilt()
     val shin = when (thigh) {
-        Tilt.FAR_UP -> Tilt.fromChar('1' + random.nextInt(0,3))!!
+        Tilt.FAR_UP -> Tilt.fromChar('1' + Random.nextInt(0,3))!!
         Tilt.UP, Tilt.STRAIGHT -> getRandomTilt()
-        Tilt.DOWN -> Tilt.fromChar('0' + random.nextInt(0,3))!!
+        Tilt.DOWN -> Tilt.fromChar('0' + Random.nextInt(0,3))!!
         else -> throw PoseException("Invalid non-concrete random tilt on thigh")
     }
     val foot = when (shin) {
         Tilt.FAR_UP, Tilt.UP -> getRandomTilt()
-        Tilt.STRAIGHT -> Tilt.fromChar('0' + random.nextInt(0,3))!!
+        Tilt.STRAIGHT -> Tilt.fromChar('0' + Random.nextInt(0,3))!!
         Tilt.DOWN -> Tilt.DOWN
         else -> throw PoseException("Invalid non-concrete random tilt on shin")
     }
     return Triple(thigh, shin, foot)
 }
 
-private fun getRandomTilt(earlier: Tilt? = null): Tilt {
-    return Tilt.fromChar('0' + random.nextInt(0, 4))!!
+private fun getRandomTilt(): Tilt { //earlier: Tilt? = null): Tilt {
+    return Tilt.fromChar('0' + Random.nextInt(0, 4))!!
 }
 
