@@ -1,28 +1,21 @@
 package bedalton.creatures.breed.render.cli
 
-import bedalton.creatures.agents.pray.data.DataBlock
-import bedalton.creatures.agents.pray.parser.parsePrayAgentToMemory
 import bedalton.creatures.breed.render.cli.internal.*
-import bedalton.creatures.breed.render.cli.internal.getIncrementalFileStart
-import bedalton.creatures.breed.render.cli.internal.resolvePose
 import bedalton.creatures.breed.render.renderer.BreedRendererBuilder
 import bedalton.creatures.breed.render.support.pose.Pose.Companion.defaultPose
-import bedalton.creatures.cli.*
+import bedalton.creatures.cli.GameArgType
 import bedalton.creatures.common.structs.BreedKey
 import bedalton.creatures.common.structs.GameVariant
-import bedalton.creatures.common.util.*
 import com.bedalton.app.exitNativeWithError
 import com.bedalton.app.getCurrentWorkingDirectory
 import com.bedalton.cli.Flag
-import com.bedalton.cli.unescapeCLIPathAndQualify
-import com.bedalton.common.coroutines.mapAsync
 import com.bedalton.common.util.*
 import com.bedalton.log.LOG_DEBUG
 import com.bedalton.log.LOG_VERBOSE
 import com.bedalton.log.Log
 import com.bedalton.log.iIf
 import com.bedalton.vfs.*
-import com.soywiz.korim.format.PNG
+import korlibs.image.format.PNG
 import kotlinx.cli.*
 import kotlinx.coroutines.*
 import kotlin.random.Random
@@ -113,7 +106,7 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
         "gender",
         "g",
         "Creature gender"
-    ).required()
+    )
 
     private val scale: Double by option(
         ArgType.Double,
@@ -235,6 +228,17 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
         description = "Genetics file or C2 egg file"
     )
 
+    private val genomeVariant by option(
+        ArgType.Int,
+        "gene-variant",
+        description = "C2e genome variant, used when determining parts and "
+    ).default(0)
+
+    private val verbose by option(
+        Flag,
+        "verbose",
+        description = "Use verbose logging"
+    ).default(false)
 
     override fun execute() {
         GlobalScope.launch {
@@ -253,6 +257,10 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
         if (debug == true) {
             Log.setMode(LOG_DEBUG, true)
         }
+        if (verbose) {
+            Log.setMode(LOG_VERBOSE, true)
+            Log.setMode(LOG_DEBUG, true)
+        }
 
         if (scale !in 1.0..10.0) {
             exitNativeWithError(1, "Scale must be be 1..10 (inclusive); Found: $scale")
@@ -260,12 +268,6 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
 
 
         val missing = mutableListOf<String>()
-
-        // Gender
-        var gender = gender
-        if (gender == -1) {
-            gender = (Random(8880).nextInt(0, 99) % 2) + 1
-        }
 
         // Age
         val age = age
@@ -278,23 +280,18 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
             exitWithError(RENDER_ERROR_CODE__MISSING_REQUIRED_AGE_OR_GENDER, missing.joinToString(""))
         }
 
-        // Collect missing breed information
-        collectMissingBreedParts(missing)
-        // Breeds are missing
-        if (missing.size > 0) {
-            exitWithError(RENDER_ERROR_CODE__MISSING_REQUIRED_BREED_VALUES, missing.joinToString(","))
-        }
 
         // Get working directory
-        val currentWorkingDirectory = getCurrentWorkingDirectory()?.expandTildeIfNecessary()
+        val currentWorkingDirectory = getCurrentWorkingDirectory()?.expandTildeIfNecessary()?.stripDotSlash()
 
         // Combine the sources which are both globbed files, and folders
         val sources = getSourceFolders(currentWorkingDirectory)
 
+        val finalSources = constructFileSystem(sources, currentWorkingDirectory, genomePath)
+
         // Create initial builder
-        val task = BreedRendererBuilder(gameVariant)
-            .withSourceRoots(sourcesFinal)
-            .withFallbackGender(gender)
+        var task = BreedRendererBuilder(gameVariant)
+            .withSetSourceRoots(finalSources.sources + listOfNotNull(finalSources.getGenomePath()))
             .withAge(age)
             .withGhostParts(ghost.flatten())
             .withHiddenParts(hidden.joinToString { "$it" })
@@ -306,14 +303,70 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
             .withPadding(padding)
             .applySwapAndRotation()
 
-
-        if (genomePath?.lowercase()?.let { it.endsWith("agent") || it.endsWith("agents") } == true) {
-
+        val genomePath = finalSources.getGenomePath()
+        val genomeVariant = if (genomeVariant !in 0..8) {
+            Log.e { "Genome variant must be a value 0..8; Found: $genomeVariant; Defaulting to '0'" }
+            0
+        } else {
+            genomeVariant
         }
+
+        // Gender // Possibly
+        var gender = gender
+
+
+        if (gender == -1) {
+            gender = (Random.nextInt(0, 99) % 2) + 1
+            Log.iIf(LOG_DEBUG) { "Resolving random gender to ${getEggGenderValueGender(gender!!)} " }
+        }
+
+        // Collect missing breed information
+        if (genomePath.isNotNullOrBlank()) {
+            val (genome, genderIfC2Egg) = readGenome(finalSources, genomePath, genomeVariant)
+            // Apply gender from C2 egg
+            if (genderIfC2Egg != null) {
+                gender = genderFromC2EggGenderValue(genderIfC2Egg, gender)
+            }
+            if (gender == null) {
+                exitNativeWithError(RENDER_ERROR_CODE__INVALID_GENDER_VALUE, "Gender is required")
+            }
+
+            task = task.withGenomeApplyNow(genome, gender, age, if (genderIfC2Egg != null) 0 else genomeVariant)
+
+            task = task.withAge(age)
+            task = task.withFallbackGender(gender)
+            Log.iIf(LOG_DEBUG) { "CLI: " + task.toCLIOpts(false) }
+
+
+            Log.iIf(LOG_DEBUG) { "Applied parts from genome" }
+            head?.let { task = task.withHead(it) }
+            body?.let { task = task.withBody(it) }
+            legs?.let { task = task.withLegs(it) }
+            arms?.let { task = task.withArms(it) }
+            tail?.let { task = task.withTail(it) }
+            hair?.let { task = task.withHair(it) }
+
+        } else {
+            collectMissingBreedParts(missing)
+
+            // Breeds are missing
+            if (missing.size > 0) {
+                exitWithError(RENDER_ERROR_CODE__MISSING_REQUIRED_BREED_VALUES, missing.joinToString(","))
+            }
+            task = task.applyBreeds()
+        }
+
+        // Make sure gender is not null (not null if passed from CLI or set by C2 Egg)
+        if (gender == null) {
+            exitNativeWithError(RENDER_ERROR_CODE__INVALID_GENDER_VALUE, "Value for option --gender must be provided")
+        }
+
+        // Set gender
+        task = task.withFallbackGender(gender)
 
 
         // Get out base path. Could be a file or a folder
-        val outWithExpandedTilde = out.expandTildeIfNecessary()
+        val outWithExpandedTilde = out.expandTildeIfNecessary().stripDotSlash()
         // Get path while expanding tilde, as this failed on Ubuntu
         val out = if (!PathUtil.isAbsolute(outWithExpandedTilde)) {
             if (currentWorkingDirectory == null) {
@@ -366,15 +419,16 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
         // Get start file number increment, for sequential files
         val startI = getIncrementalFileStart(fs, out, poses.count { it.second == null })
 
+        val lastIndex = poses.lastIndex
         // Render pose(s)
-        val wroteAll = poses.indices.mapAsync { i ->
+        val wroteAll = poses.indices.map { i ->
             val pose = poses[i]
 
             // Get actual file name to write to.
             // This could have been set on the CLI or could be automatically incremented
             val outActual = pose.second // get explicitly set name
                 ?.replace("[\\\\/:]".toRegex(), "_")  // Replace illegal chars
-                ?: getFileName(fs, out, startI + i, isMultiPose = poses.size <= 1, increment = increment)
+                ?: getOutputFileName(fs, out, startI + i, isMultiPose = poses.size <= 1, increment = increment)
 
             // Log actual filename
             Log.iIf(LOG_DEBUG) { "writing: $outActual" }
@@ -388,7 +442,9 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
 
             try {
                 fs.write(outActual, outputBytes)
-                delay(120)
+                if (i != lastIndex) {
+                    delay(20)
+                }
                 Log.iIf(LOG_DEBUG) { "Wrote Pose: $i to $outActual" }
                 true
             } catch (e: Exception) {
@@ -409,11 +465,11 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
         // Store for non-null checks and use
         var swap = swap
         if (swap != null && swap < 0) {
-            swap = random.nextInt(0, 256)
+            swap = Random.nextInt(0, 256)
         }
         var rotation = rotation
         if (rotation != null && rotation < 0) {
-            rotation = random.nextInt(0, 256)
+            rotation = Random.nextInt(0, 256)
         }
 
         // Apply transform variant if any
@@ -424,7 +480,7 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
 
         // Apply swap and rotate if needed
         return if (rgb != null || swap != null || rotation != null) {
-            out.withSwapAndRotate(
+            out.withTintSwapAndRotate(
                 red = rgb?.get(0),
                 green = rgb?.get(1),
                 blue = rgb?.get(2),
@@ -491,6 +547,18 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
         }
     }
 
+    private fun assertNotMissing(missing: List<String>, genomeVariant: Int? = null) {
+        // Breeds are missing
+        if (missing.isNotEmpty()) {
+            val variantText = if (genomeVariant != null && genomeVariant != 0) {
+                " in genome with variant $genomeVariant"
+            } else {
+                ""
+            }
+            exitWithError(RENDER_ERROR_CODE__MISSING_REQUIRED_BREED_VALUES, missing.joinToString(",") + variantText)
+        }
+    }
+
     private fun BreedRendererBuilder.applyBreeds(): BreedRendererBuilder {
         val default = breed
         val head = head ?: default
@@ -514,36 +582,55 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
     }
 
 
+    /**
+     * Get source folders from CLI source arguments
+     */
     private suspend fun getSourceFolders(currentWorkingDirectory: String?): List<String> {
 
-        sources.filter {
-            it.startsWith('-') && !(currentWorkingDirectory?.let { cwd -> PathUtil.combine(cwd, it) }
-                ?: it).let { qualified ->
-                LocalFileSystem!!.fileExists(qualified)
+        sources.filter { it.startsWith('-') }
+            .filter {
+                Log.iIf(LOG_DEBUG) { "Checking if valid folder: $it" }
+                val path = it.expandTildeIfNecessary().stripDotSlash()
+                val absolutePath = if (PathUtil.isAbsolute(path)) {
+                    path
+                } else if (currentWorkingDirectory != null) {
+                    PathUtil.combine(currentWorkingDirectory, path)
+                } else {
+                    exitNativeWithError(ERROR_CODE__BAD_INPUT_FILE) {
+                        "Failed to get current working directory for non-absolute paths"
+                    }
+                }
+                try {
+                    !LocalFileSystem!!.fileExists(absolutePath)
+                } catch (e: Exception) {
+                    exitNativeWithError(ERROR_CODE__BAD_INPUT_FILE, "Failed to check file existence;${e.formatted()}")
+                }
             }
-        }.nullIfEmpty()?.also {
-            Log.w {
-                "Invalid source directories found: [\n\t${it.joinToString("\n\t")}\n]\nWere these meant to be options? Check prefix dashes and spelling"
+            .nullIfEmpty()
+            ?.also {
+                exitNativeWithError(ERROR_CODE__BAD_INPUT_FILE) {
+                    "Invalid source directories found: [\n\t${it.joinToString("\n\t")}\n]\n " +
+                            "Were these meant to be options? Check prefix dashes and option spelling\n"
+                }
             }
-        }
 
         // Get all passed in paths qualified
         val rawPaths = sources
-            .map {
-                val path = it.expandTildeIfNecessary()
+            .map { aPath ->
+                val path = aPath.expandTildeIfNecessary().stripDotSlash()
                 if (PathUtil.isAbsolute(path)) {
                     path
                 } else if (currentWorkingDirectory == null) {
                     exitWithError(
                         ERROR_CODE__BAD_INPUT_FILE,
-                        "Failed to get current working directory, and not all paths are absolute; Path: $it"
+                        "Failed to get current working directory, and not all paths are absolute; Path: $aPath"
                     )
                 } else {
                     PathUtil.combine(currentWorkingDirectory, path)
                 }
             }
 
-        // Get concrete folders (i.e. not or before wildcard)
+        // Get concrete folders (i.e. before or without wildcard)
         val folders = rawPaths.mapNotNull { path ->
             if (path.contains('[') || path.contains('*') || path.contains('{')) {
                 val parts = path.split("[/\\\\]+")
@@ -564,6 +651,7 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
 
         val localVFS = LocalFileSystem
             ?: exitNativeWithError(1, "File access without scope is not yet implemented")
+
         // Glob the wildcard paths
         val globResult = rawPaths.flatMap { path ->
             if (path.contains('[') || path.contains('*') || path.contains('{')) {
@@ -583,20 +671,32 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
 }
 
 
-
-private suspend fun constructFileSystem(rawSourcesList: List<String>, currentWorkingDirectory: String?, genomePathIn: String?): SourceFiles {
+private suspend fun constructFileSystem(
+    rawSourcesList: List<String>,
+    currentWorkingDirectory: String?,
+    genomePathIn: String?
+): SourceFiles {
     Log.iIf(LOG_DEBUG) { "Command running with ${rawSourcesList.size} source paths;" }
 
 
     val aliasPathPattern = "\\[([^\\]]+)\\]=(.+)".toRegex()
+
     val sourceRootDirectories = rawSourcesList.map {
         val path = aliasPathPattern.matchEntire(it)
             ?.groupValues
             ?.getOrNull(2)
             ?: it
-        PathUtil.getWithoutLastPathComponent(path) ?: path
+        (PathUtil.getWithoutLastPathComponent(path) ?: path).unescapePath()
     }.distinct()
+
+    Log.iIf(LOG_DEBUG) {
+        "SourceDirectories:\n\t- " + sourceRootDirectories.joinToString("\n\t- ")
+    }
+
+    // Get file system with actual paths
     val fsPhysical = ScopedFileSystem(sourceRootDirectories)
+
+    // Get files with aliased paths where the file does not match the filename in the FileSystem
     val aliasedPaths = rawSourcesList.mapNotNull map@{
         val parts = aliasPathPattern
             .matchEntire(it)
@@ -615,72 +715,33 @@ private suspend fun constructFileSystem(rawSourcesList: List<String>, currentWor
         )
     }
 
-
-    val genomePath: String? = genomePathIn?.expandTildeIfNecessary()?.let { path ->
-        if (!PathUtil.isAbsolute(path)) {
-            if (currentWorkingDirectory == null) {
-                throw Exception("Failed to get current working directory to qualify genome path")
-            }
-            unescapeCLIPathAndQualify(path, currentWorkingDirectory)
-                ?: throw Exception("Faile to qualify genome path; Genome File: $path; Current Directory: $currentWorkingDirectory")
-        } else {
-            path
-        }
-    }
-
+    // Combine physical and aliased source files
     val sourcesWithAliasedNames = rawSourcesList.filterNot(aliasPathPattern::matches) + aliasedPaths.map { it.path }
 
-
+    // Construct file system
     val fs = FileSystemWithInputFiles(
         fsPhysical,
         aliasedPaths.associateBy { it.path },
         matchFileNameOnly = true
     )
 
-    val agentFiles = getAgentFiles(fs, sourcesWithAliasedNames)
+//    // Get agent files
+//    val agentFiles = getAgentFiles(fs, sourcesWithAliasedNames)
+//
+//    for ((agentFileName, files) in agentFiles) {
+//        for (file in files) {
+//            fs[PathUtil.combine(agentFileName, file.name)] = file
+//        }
+//    }
 
-    val genomeFiles = if (genomePath != null) {
-        if (PathUtil.getExtension(genomePath)?.lowercase()?.let { it == "agents" || it == "agent" } == true) {
-            val fileName = PathUtil.getLastPathComponent(genomePath)?.lowercase()
-            val theFiles = agentFiles.firstOrNull { it.first like genomePath }?.second ?: agentFiles.firstOrNull { PathUtil.getFileNameWithoutExtension(it.first)?.lowercase() == fileName }?.second
-            theFiles?.filter { PathUtil.getExtension(it.name) like "gen" }?.map { it.name }
-        } else {
-            listOf(genomePath)
-        }
-    } else {
-        null
-    }
+    // Get expected genome files
+    val genomeFiles = getGenomeFiles(genomePathIn, currentWorkingDirectory, emptyList())
+
     return SourceFiles(
         fs,
         sources = sourcesWithAliasedNames,
-        genomeFiles = genomeFiles
+        genomeFiles = genomeFiles?.first,
+        genomeFilter = genomeFiles?.second
     )
 }
 
-
-private suspend fun getAgentFiles(fs: FileSystem, allFiles: List<String>): List<Pair<String, List<File>>> {
-
-    // Get agent files
-    val agents = allFiles.filter { it.lowercase().endsWith("agent") || it.lowercase().endsWith("agents") }
-    return agents.mapAsync { path ->
-        if (fs.fileExists(path)) {
-            val bytes = fs.read(path)
-            val result = parsePrayAgentToMemory(bytes, whitelist = arrayOf("FILE"), true)
-            path to result.blocks.filterIsInstance<DataBlock>().filter { it.blockTag.lowercase() == "FILE" }.mapAsync {
-                BinaryFile(
-                    it.blockName,
-                    it.data()
-                )
-            }
-        } else {
-            null
-        }
-    }.filterNotNull()
-}
-
-
-private data class SourceFiles(
-    val fs: FileSystem,
-    val sources: List<String>,
-    val genomeFiles: List<String>?,
-)
