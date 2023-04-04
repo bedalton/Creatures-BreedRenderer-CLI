@@ -2,10 +2,12 @@
 
 import com.bedalton.gradle.multiplatform.RenameNativeExecutableTask
 import com.bedalton.gradle.multiplatform.capitalize
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     id("com.bedalton.multiplatform") version "1.0.0"
     kotlin("multiplatform")
+    id("org.graalvm.buildtools.native") version "0.9.20"
     application
 }
 
@@ -43,6 +45,10 @@ bedaltonConfig {
     additionalLibraries += listOf("local-files")
 }
 
+application {
+    mainClass.set("bedalton.creatures.breed.render.cli.MainKt")
+}
+
 repositories {
     mavenLocal()
     mavenCentral()
@@ -53,7 +59,7 @@ repositories {
 kotlin {
     jvm {
         compilations.all {
-            kotlinOptions.jvmTarget = "1.8"
+            kotlinOptions.jvmTarget = "11"
         }
         withJava()
         testRuns["test"].executionTask.configure {
@@ -177,6 +183,7 @@ kotlin {
             dependencies {
                 implementation("org.jetbrains.kotlinx:kotlinx-nodejs:0.0.7")
                 implementation(npm("glob", "7.2.0"))
+                implementation(npm("pako", "2.1.0"))
             }
         }
         val jsTest by getting
@@ -213,4 +220,55 @@ listOf(
         targetExecutableName = "render-breed"
         outputs.upToDateWhen { false }
     }
+}
+
+
+
+tasks {
+
+    test {
+        exclude("module-info.java")
+    }
+
+    compileJava {
+
+        val javaModuleName: String by project
+        modularity.inferModulePath.set(true)
+        inputs.property("moduleName", javaModuleName)
+        targetCompatibility = "11"
+        sourceCompatibility = "11"
+        doFirst {
+            options.compilerArgs = listOf(
+                "--module-path", classpath.asPath,
+                "--patch-module", "$javaModuleName=${sourceSets["main"].output.asPath}"
+            )
+            classpath = files()
+        }
+    }
+
+    jar {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
+}
+val compileKotlinJvm: KotlinCompile by tasks
+val compileJava: JavaCompile by tasks
+compileKotlinJvm.destinationDirectory.set(compileJava.destinationDirectory.get())
+
+graalvmNative {
+    binaries {
+        named("main") {
+            buildArgs.addAll(
+                listOf(
+                    "-H:DashboardDump=render-breed-cli",
+                    "-H:+DashboardAll",
+                    "-H:+PrintClassInitialization",
+                )
+            )
+        }
+    }
+}
+
+val graalNativeTaskRegex = "native(Compile|Run|TestCompile)".toRegex(RegexOption.IGNORE_CASE)
+tasks.filter { graalNativeTaskRegex.matches(it.name) }.forEach {
+    it.group = "native"
 }
