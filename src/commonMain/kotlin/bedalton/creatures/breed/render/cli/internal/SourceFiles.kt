@@ -1,8 +1,6 @@
 package bedalton.creatures.breed.render.cli.internal
 
 import com.bedalton.common.coroutines.LockingDataCache
-import com.bedalton.common.structs.UnsafeDataCache
-import com.bedalton.log.Log
 import com.bedalton.vfs.FileSystem
 
 internal data class SourceFiles(
