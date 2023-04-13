@@ -206,13 +206,13 @@ internal fun genderFromC2EggGenderValue(eggGenderValue: Int, fallbackGender: Int
 
     // If gender is 0 or 2 (Norn Binary), use random gender
     val outputGender = if (eggGenderValue != 1 && eggGenderValue != 2) {
-        val randomGender = Random.nextInt(0, 1)
+        val randomGender = Random.nextInt(0, 1) + 1
         val resolvedGenderString = getEggGenderValueGender(randomGender + 1)
         Log.iIf(LOG_DEBUG) { "Resolved C2 egg <$genderValueGender> gender to $resolvedGenderString" }
         randomGender
     } else {
         Log.iIf(LOG_DEBUG) { "Using gender <${getEggGenderValueGender(eggGenderValue)}> from C2 egg" }
-        eggGenderValue - 1
+        eggGenderValue
     }
     return outputGender
 }
