@@ -5,7 +5,8 @@ import bedalton.creatures.common.structs.GameVariant
 import bedalton.creatures.common.structs.isC1e
 import kotlin.random.Random
 
-val randomTrueFalse = (Random.nextInt(0, 100) % 2) == 0
+val randomTrueFalse get() = (Random.nextInt(0, 100) % 2) == 0
+
 
 internal fun randomPose(variant: GameVariant, facingConstraint: PoseFacing? = null): Pose {
     val bodyFacing = facingConstraint ?: (when (Random.nextInt(0, 9)) {
@@ -29,7 +30,9 @@ internal fun randomPose(variant: GameVariant, facingConstraint: PoseFacing? = nu
             }
             PoseFacing.BACK -> PoseFacing.BACK
             else -> {
-                if (randomTrueFalse) {
+                // Face should be way more likely to face front
+                val faceFront = (Random.nextInt(0, 100) % 5) > 0
+                if (faceFront) {
                     PoseFacing.FRONT
                 } else {
                     PoseFacing.BACK
