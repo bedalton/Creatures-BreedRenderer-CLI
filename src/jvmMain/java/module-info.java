@@ -17,6 +17,7 @@ module bedalton.creatures.renderer.cli {
     requires bedalton.creatures.praydata;
     requires bedalton.creatures.breed.render;
     requires bedalton.creatures.breed.render.support;
+    requires bedalton.creatures.exports.minimal;
 
     exports bedalton.creatures.breed.render.cli;
 }
