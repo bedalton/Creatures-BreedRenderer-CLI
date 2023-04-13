@@ -10,7 +10,8 @@ internal suspend fun getOutputFileName(
     out: String,
     i: Int,
     isMultiPose: Boolean,
-    increment: Boolean
+    increment: Boolean,
+    previousFiles: MutableList<String>
 ): String {
     if (isMultiPose && !increment) {
         return if (out.lowercase().endsWith(".png")) {
@@ -38,6 +39,6 @@ internal suspend fun getOutputFileName(
     var temp: String
     do {
         temp = "$prefix.$i.png"
-    } while (increment && localVFS.fileExists(temp))
+    } while ((increment && localVFS.fileExists(temp)) || temp in previousFiles)
     return temp
 }
