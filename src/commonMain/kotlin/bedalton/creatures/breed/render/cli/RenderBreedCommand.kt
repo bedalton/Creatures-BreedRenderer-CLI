@@ -6,9 +6,11 @@ import bedalton.creatures.breed.render.support.pose.Pose.Companion.defaultPose
 import bedalton.creatures.cli.GameArgType
 import bedalton.creatures.common.structs.BreedKey
 import bedalton.creatures.common.structs.GameVariant
+import bedalton.creatures.genetics.genome.Genome
 import com.bedalton.app.exitNativeWithError
 import com.bedalton.app.getCurrentWorkingDirectory
 import com.bedalton.cli.Flag
+import com.bedalton.common.coroutines.mapAsync
 import com.bedalton.common.util.*
 import com.bedalton.log.LOG_DEBUG
 import com.bedalton.log.LOG_VERBOSE
@@ -18,15 +20,18 @@ import com.bedalton.vfs.*
 import korlibs.image.format.PNG
 import kotlinx.cli.*
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlin.math.exp
 import kotlin.random.Random
 
 
 class RenderBreedCommand : Subcommand("render", "Render a creature with breed options") {
 
-    private val gameVariant by argument(
+    private val gameVariant by option(
         GameArgType,
         "game",
-        "Game to render for"
+        "Game to render for. Value of [C1,C2,C3]"
     )
 
     private val debug by option(
@@ -99,7 +104,7 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
         ArgType.Int,
         "age",
         description = "Creature age as int 0..7"
-    ).required()
+    )
 
     private val gender by option(
         GenderArg,
@@ -128,13 +133,13 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
     )
 
     private val swap by option(
-        ArgType.Int,
+        ArgType.String,
         "swap",
         description = "Color swap between red and blue. 0-255, with 128 being no change"
     )
 
     private val rotation by option(
-        ArgType.Int,
+        ArgType.String,
         "rotation",
         description = "Color rotation shifting. 0-255, with 128 being no change"//. Value less than 128 rotated r<-g<-b. Greater than 128 r->g->b"
     )
@@ -228,6 +233,12 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
         description = "Genetics file or C2 egg file"
     )
 
+    private val exportPath by option(
+        ArgType.String,
+        "export",
+        description = "Creature export file path"
+    )
+
     private val genomeVariant by option(
         ArgType.Int,
         "gene-variant",
@@ -239,6 +250,8 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
         "verbose",
         description = "Use verbose logging"
     ).default(false)
+
+    private val fileNameLock = Mutex(false)
 
     override fun execute() {
         GlobalScope.launch {
@@ -269,11 +282,6 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
 
         val missing = mutableListOf<String>()
 
-        // Age
-        val age = age
-        if (age !in 0..6) {
-            exitWithError(RENDER_ERROR_CODE__INVALID_AGE_VALUE)
-        }
 
         // Age or gender is missing
         if (missing.isNotEmpty()) {
@@ -287,12 +295,20 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
         // Combine the sources which are both globbed files, and folders
         val sources = getSourceFolders(currentWorkingDirectory)
 
-        val finalSources = constructFileSystem(sources, currentWorkingDirectory, genomePath)
+        if (genomePath != null && exportPath != null) {
+            exitNativeWithError(1, "Genome and Export options cannot be used together")
+        }
+        val finalSources = constructFileSystem(sources, currentWorkingDirectory, genomePath, exportPath)
+
+        val gameVariant = gameVariant
+            ?: finalSources.findGameVariant().also {
+                Log.iIf(LOG_DEBUG) { "Ascertained variant to be $it" }
+            }
+
 
         // Create initial builder
         var task = BreedRendererBuilder(gameVariant)
             .withSetSourceRoots(finalSources.sources + listOfNotNull(finalSources.getGenomePath()))
-            .withAge(age)
             .withGhostParts(ghost.flatten())
             .withHiddenParts(hidden.joinToString { "$it" })
             .withGhostAlpha(ghostAlpha)
@@ -311,31 +327,65 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
             genomeVariant
         }
 
-        // Gender // Possibly
-        var gender = gender
+        // Age
+        var age = age
 
+        // Gender
+        var gender = gender
 
         if (gender == -1) {
             gender = (Random.nextInt(0, 99) % 2) + 1
             Log.iIf(LOG_DEBUG) { "Resolving random gender to ${getEggGenderValueGender(gender!!)} " }
         }
 
+        var setParts = false
+        var genome: Genome? = null
         // Collect missing breed information
         if (genomePath.isNotNullOrBlank()) {
-            val (genome, genderIfC2Egg) = readGenome(finalSources, genomePath, genomeVariant)
+            val (genomeTemp, genderIfC2Egg) = readGenome(finalSources, genomePath, genomeVariant)
+            genome = genomeTemp
             // Apply gender from C2 egg
             if (genderIfC2Egg != null) {
                 gender = genderFromC2EggGenderValue(genderIfC2Egg, gender)
             }
-            if (gender == null) {
-                exitNativeWithError(RENDER_ERROR_CODE__INVALID_GENDER_VALUE, "Gender is required")
-            }
+        }
 
-            task = task.withGenomeApplyNow(genome, gender, age, if (genderIfC2Egg != null) 0 else genomeVariant)
+        val exportData = finalSources.exportData.getData()
+        if (exportData != null) {
+            Log.iIf(LOG_DEBUG) { "Export Data:\n$exportData"}
+            if (exportData.size > 1) {
+                Log.w { "Too many exports found in file. Using first" }
+            }
+            val export = exportData.first()
+            genome = export.genome
+            gender = gender ?: export.gender
+            age = age ?: export.age
+        } else {
+            Log.iIf(LOG_VERBOSE) { "No export data" }
+        }
+
+        if (age == null) {
+            exitNativeWithError(RENDER_ERROR_CODE__INVALID_AGE_VALUE, "Age value is required; Use \'--age\'")
+        }
+
+        if (age !in 0..6) {
+            exitWithError(RENDER_ERROR_CODE__INVALID_AGE_VALUE)
+        }
+
+        task = task.withAge(age)
+
+        // Make sure gender is not null (not null if passed from CLI or set by C2 Egg)
+        if (gender == null) {
+            exitNativeWithError(RENDER_ERROR_CODE__INVALID_GENDER_VALUE, "Value for option --gender must be provided")
+        }
+
+
+
+        if (genome != null) {
+            task = task.withGenomeApplyNow(genome, gender, age, if (genome.version < 3) 0 else genomeVariant)
 
             task = task.withAge(age)
             task = task.withFallbackGender(gender)
-            Log.iIf(LOG_DEBUG) { "CLI: " + task.toCLIOpts(false) }
 
 
             Log.iIf(LOG_DEBUG) { "Applied parts from genome" }
@@ -345,20 +395,17 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
             arms?.let { task = task.withArms(it) }
             tail?.let { task = task.withTail(it) }
             hair?.let { task = task.withHair(it) }
+            setParts = true
+        }
 
-        } else {
-            collectMissingBreedParts(missing)
+        if (!setParts) {
+            collectMissingBreedParts(gameVariant, missing)
 
             // Breeds are missing
             if (missing.size > 0) {
                 exitWithError(RENDER_ERROR_CODE__MISSING_REQUIRED_BREED_VALUES, missing.joinToString(","))
             }
-            task = task.applyBreeds()
-        }
-
-        // Make sure gender is not null (not null if passed from CLI or set by C2 Egg)
-        if (gender == null) {
-            exitNativeWithError(RENDER_ERROR_CODE__INVALID_GENDER_VALUE, "Value for option --gender must be provided")
+            task = task.applyBreeds(gameVariant)
         }
 
         // Set gender
@@ -376,6 +423,12 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
         } else {
             outWithExpandedTilde
         }
+
+        if (LocalFileSystem!!.isDirectory(out)) {
+            exitNativeWithError(ERROR_CODE__BAD_OUTPUT_FILE, "Output file is required. Found: $out")
+        }
+
+        Log.iIf(LOG_DEBUG) { "CLI: " + task.toCLIOpts(false) }
 
         // Get the actual pose renderer
         val renderer = task.poseRenderer()
@@ -419,7 +472,7 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
         // Get start file number increment, for sequential files
         val startI = getIncrementalFileStart(fs, out, poses.count { it.second == null })
 
-        val lastIndex = poses.lastIndex
+        val previousFiles = mutableListOf<String>()
         // Render pose(s)
         val wroteAll = poses.indices.map { i ->
             val pose = poses[i]
@@ -428,10 +481,10 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
             // This could have been set on the CLI or could be automatically incremented
             val outActual = pose.second // get explicitly set name
                 ?.replace("[\\\\/:]".toRegex(), "_")  // Replace illegal chars
-                ?: getOutputFileName(fs, out, startI + i, isMultiPose = poses.size <= 1, increment = increment)
-
-            // Log actual filename
-            Log.iIf(LOG_DEBUG) { "writing: $outActual" }
+                ?: getOutputFileName(fs, out, startI + i, isMultiPose = poses.size <= 1, increment = increment, previousFiles = previousFiles)
+            previousFiles.add(outActual)
+            Triple(i, outActual, pose)
+        }.mapAsync {  (i, outToTry, pose) ->
 
             // Actually render the image
             val rendered = renderer(pose.first, scale)
@@ -441,12 +494,20 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
             val outputBytes = PNG.encode(rendered)
 
             try {
-                fs.write(outActual, outputBytes)
-                if (i != lastIndex) {
-                    delay(20)
+                fileNameLock.withLock {
+                    var outActual = outToTry
+                    while (fs.fileExists(outActual)) {
+                        outActual = getOutputFileName(fs, out, startI + i, isMultiPose = poses.size <= 1, increment = increment, previousFiles = previousFiles)
+                    }
+                    // Log actual filename
+                    Log.iIf(LOG_DEBUG) { "writing: $outActual" }
+                    fs.write(outActual, outputBytes)
+//                if (i != lastIndex) {
+//                    delay(10)
+//                }
+                    Log.iIf(LOG_DEBUG) { "Wrote Pose: $i to $outActual" }
+                    true
                 }
-                Log.iIf(LOG_DEBUG) { "Wrote Pose: $i to $outActual" }
-                true
             } catch (e: Exception) {
                 exitWithError(RENDER_ERROR_CODE__FAILED_TO_WRITE_IMAGE, out, stackTrace = e.stackTraceToString())
             }
@@ -463,11 +524,11 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
         val rgb = getTintValues(tint)
 
         // Store for non-null checks and use
-        var swap = swap
+        var swap = getColorValue("swap", swap)
         if (swap != null && swap < 0) {
             swap = Random.nextInt(0, 256)
         }
-        var rotation = rotation
+        var rotation = getColorValue("rotation", rotation)
         if (rotation != null && rotation < 0) {
             rotation = Random.nextInt(0, 256)
         }
@@ -493,7 +554,7 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
         }
     }
 
-    private fun toKey(breedKey: BreedKey): BreedKey {
+    private fun toKey(gameVariant: GameVariant, breedKey: BreedKey): BreedKey {
         if (breedKey.genus !in 0..3) {
             exitNativeWithError(RENDER_ERROR_CODE__INVALID_GENUS, "Invalid part breed genus: ${breedKey.genus}")
         }
@@ -522,7 +583,7 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
         return out.copyWithAgeGroup(age)
     }
 
-    private fun collectMissingBreedParts(missing: MutableList<String>) {
+    private fun collectMissingBreedParts(gameVariant: GameVariant, missing: MutableList<String>) {
         val default = breed
         val head = head ?: default
         val body = body ?: default
@@ -559,7 +620,7 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
         }
     }
 
-    private fun BreedRendererBuilder.applyBreeds(): BreedRendererBuilder {
+    private fun BreedRendererBuilder.applyBreeds(gameVariant: GameVariant): BreedRendererBuilder {
         val default = breed
         val head = head ?: default
         val hair = hair ?: default
@@ -568,15 +629,15 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
         val arms = arms ?: default
         val tail = tail ?: default
 
-        var out = withHead(toKey(head!!))
-            .withBody(toKey(body!!))
-            .withArms(toKey(arms!!))
-            .withLegs(toKey(legs!!))
+        var out = withHead(toKey(gameVariant, head!!))
+            .withBody(toKey(gameVariant, body!!))
+            .withArms(toKey(gameVariant, arms!!))
+            .withLegs(toKey(gameVariant, legs!!))
         if (tail != null) {
-            out = out.withTail(toKey(tail))
+            out = out.withTail(toKey(gameVariant, tail))
         }
         if (hair != null) {
-            out = out.withHair(toKey(hair))
+            out = out.withHair(toKey(gameVariant, hair))
         }
         return out
     }
@@ -674,20 +735,27 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
 private suspend fun constructFileSystem(
     rawSourcesList: List<String>,
     currentWorkingDirectory: String?,
-    genomePathIn: String?
+    genomePathIn: String?,
+    exportPath: String?
 ): SourceFiles {
-    Log.iIf(LOG_DEBUG) { "Command running with ${rawSourcesList.size} source paths;" }
+    Log.iIf(LOG_DEBUG) { "Command running with ${rawSourcesList.size} source paths:\n\t-${rawSourcesList.joinToString("\n\t-")}" }
 
 
     val aliasPathPattern = "\\[([^\\]]+)\\]=(.+)".toRegex()
 
-    val sourceRootDirectories = rawSourcesList.map {
+    val sourceRootDirectories = (rawSourcesList.map {
         val path = aliasPathPattern.matchEntire(it)
             ?.groupValues
             ?.getOrNull(2)
             ?: it
-        (PathUtil.getWithoutLastPathComponent(path) ?: path).unescapePath()
-    }.distinct()
+        if (PathUtil.getExtension(path).isNotNullOrBlank()) {
+            (PathUtil.getWithoutLastPathComponent(path) ?: path).unescapePath()
+        } else {
+            path.unescapePath()
+        }
+
+    }).distinct()
+
 
     Log.iIf(LOG_DEBUG) {
         "SourceDirectories:\n\t- " + sourceRootDirectories.joinToString("\n\t- ")
@@ -695,6 +763,14 @@ private suspend fun constructFileSystem(
 
     // Get file system with actual paths
     val fsPhysical = ScopedFileSystem(sourceRootDirectories)
+
+    val missing = sourceRootDirectories.filterNot { fsPhysical.fileExists(it) }
+
+    if (missing.isNotEmpty()) {
+        exitNativeWithError(ERROR_CODE__BAD_INPUT_FILE) {
+            "Invalid source files:\n\t-${missing.joinToString("\n\t-")}"
+        }
+    }
 
     // Get files with aliased paths where the file does not match the filename in the FileSystem
     val aliasedPaths = rawSourcesList.mapNotNull map@{
@@ -718,6 +794,9 @@ private suspend fun constructFileSystem(
     // Combine physical and aliased source files
     val sourcesWithAliasedNames = rawSourcesList.filterNot(aliasPathPattern::matches) + aliasedPaths.map { it.path }
 
+    Log.iIf(LOG_DEBUG) { "${sourcesWithAliasedNames.size} sources with aliased names:\n\t- ${sourcesWithAliasedNames.joinToString("\n\t- ")}" }
+
+
     // Construct file system
     val fs = FileSystemWithInputFiles(
         fsPhysical,
@@ -725,23 +804,40 @@ private suspend fun constructFileSystem(
         matchFileNameOnly = true
     )
 
-//    // Get agent files
-//    val agentFiles = getAgentFiles(fs, sourcesWithAliasedNames)
-//
-//    for ((agentFileName, files) in agentFiles) {
-//        for (file in files) {
-//            fs[PathUtil.combine(agentFileName, file.name)] = file
-//        }
-//    }
 
     // Get expected genome files
     val genomeFiles = getGenomeFiles(genomePathIn, currentWorkingDirectory, emptyList())
+    if (genomeFiles != null) {
+        fsPhysical.addSourceRoots(genomeFiles.first)
+    }
+    val exportPathQualified = if (exportPath != null) {
+        if (!PathUtil.isAbsolute(exportPath)) {
+            if (currentWorkingDirectory == null) {
+                throw Exception("Cannot get export without fully qualified path")
+            } else {
+                PathUtil.combine(currentWorkingDirectory, exportPath)
+            }
+        } else {
+            exportPath
+        }
+    } else {
+        null
+    }
+
+    if (exportPathQualified != null) {
+        Log.iIf(LOG_DEBUG) { "ExportPathIn: $exportPath; Qualified: $exportPathQualified"}
+        fsPhysical.addSourceRoot(exportPathQualified)
+    } else {
+        Log.iIf(LOG_VERBOSE) { "No export path passed in"}
+    }
 
     return SourceFiles(
         fs,
         sources = sourcesWithAliasedNames,
         genomeFiles = genomeFiles?.first,
-        genomeFilter = genomeFiles?.second
+        genomeFilter = genomeFiles?.second,
+        exportPath = exportPathQualified
     )
 }
 
+private val spriteExtensions = setOf("spr", "s16", "c16")
