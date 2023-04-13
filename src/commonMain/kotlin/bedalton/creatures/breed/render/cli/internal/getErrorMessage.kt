@@ -20,6 +20,7 @@ internal fun getErrorMessage(code: Int, vararg args: Any, includeCode: Boolean =
         RENDER_ERROR_CODE__INVALID_BREED -> "Invalid breed slot. Expected breed value ${args[0]}..${args[1]}"
         RENDER_ERROR_CODE__MISSING_POSE -> "Cannot render without pose string"
         RENDER_ERROR_CODE__INVALID_POSE_STRING -> "Invalid pose string. Pose string should be 15 characters in length with values first two chars: [0-5, X,?,!] and all others: [0..3]"
+        RENDER_ERROR_CODE__MISSING_OUTPUT_FILE -> "Output file argument is required"
         else -> throw Exception("InternalError: No message set for error: $code")
     }
     return if (includeCode) {
