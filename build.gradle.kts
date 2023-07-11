@@ -49,7 +49,7 @@ bedaltonConfig {
 }
 
 application {
-    mainClass.set("bedalton.creatures.breed.render.cli.MainKt")
+    mainClass.set("com.bedalton.creatures.breed.render.cli.MainKt")
 }
 
 repositories {
@@ -140,17 +140,17 @@ kotlin {
     }
     linuxX64 {
         binaries.executable {
-            this.entryPoint = "bedalton.creatures.breed.render.cli.main"
+            this.entryPoint = "com.bedalton.creatures.breed.render.cli.main"
         }
     }
     mingwX64 {
         binaries.executable {
-            this.entryPoint = "bedalton.creatures.breed.render.cli.main"
+            this.entryPoint = "com.bedalton.creatures.breed.render.cli.main"
         }
     }
     macosX64 {
         binaries.executable {
-            this.entryPoint = "bedalton.creatures.breed.render.cli.main"
+            this.entryPoint = "com.bedalton.creatures.breed.render.cli.main"
         }
     }
     sourceSets {
@@ -160,11 +160,11 @@ kotlin {
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
                 implementation("org.jetbrains.kotlinx:kotlinx-cli:$kotlinxCliVersion")
 
-                implementation("bedalton.creatures:breed-renderer:$creaturesRendererVersion")
-                implementation("bedalton.creatures:creatures-common-cli:$creaturesCommonCLIVersion")
-                implementation("bedalton.creatures:c2-egg-parser:$creaturesC2EggParserVersion")
-                implementation("bedalton.creatures:pray-data:$creaturesPrayDataVersion")
-                implementation("bedalton.creatures:minimal-export-parser:$creaturesMinimalExportParser")
+                implementation("com.bedalton.creatures:breed-renderer:$creaturesRendererVersion")
+                implementation("com.bedalton.creatures:creatures-common-cli:$creaturesCommonCLIVersion")
+                implementation("com.bedalton.creatures:c2-egg-parser:$creaturesC2EggParserVersion")
+                implementation("com.bedalton.creatures:pray-data:$creaturesPrayDataVersion")
+                implementation("com.bedalton.creatures:minimal-export-parser:$creaturesMinimalExportParser")
 
                 implementation("com.bedalton:common-core:$bedaltonCommonCoreVersion")
                 implementation("com.bedalton:app-support:$bedaltonAppSupportVersion")
@@ -221,7 +221,7 @@ listOf(
         group = "native"
         this.target = target
         originalExecutableName = "breed-renderer-cli"
-        targetExecutableName = "render-breed"
+        targetExecutableName = "render-creature"
         outputs.upToDateWhen { false }
     }
 }
@@ -280,7 +280,7 @@ tasks.filter { graalNativeTaskRegex.matches(it.name) }.forEach {
 
 tasks.withType<ShadowJar> {
     manifest {
-        attributes("Main-Class" to "bedalton.creatures.breed.render.cli.MainKt")
+        attributes("Main-Class" to "com.bedalton.creatures.breed.render.cli.MainKt")
     }
     archiveClassifier.set("all")
     val main by kotlin.jvm().compilations

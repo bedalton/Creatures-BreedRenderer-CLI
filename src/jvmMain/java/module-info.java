@@ -1,4 +1,4 @@
-module bedalton.creatures.renderer.cli {
+module com.bedalton.creatures.renderer.cli {
     requires kotlin.stdlib;
     requires kotlinx.coroutines.core;
     requires kotlinx.cli;
@@ -11,13 +11,13 @@ module bedalton.creatures.renderer.cli {
     requires com.bedalton.bytes;
 
 
-    requires bedalton.creatures.common;
-    requires bedalton.creatures.cli;
-    requires bedalton.creatures.c2egg;
-    requires bedalton.creatures.praydata;
-    requires bedalton.creatures.breed.render;
-    requires bedalton.creatures.breed.render.support;
-    requires bedalton.creatures.exports.minimal;
+    requires com.bedalton.creatures.common;
+    requires com.bedalton.creatures.cli;
+    requires com.bedalton.creatures.c2egg;
+    requires com.bedalton.creatures.praydata;
+    requires com.bedalton.creatures.breed.render;
+    requires com.bedalton.creatures.breed.render.support;
+    requires com.bedalton.creatures.exports.minimal;
 
-    exports bedalton.creatures.breed.render.cli;
+    exports com.bedalton.creatures.breed.render.cli;
 }

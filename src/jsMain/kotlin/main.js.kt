@@ -1,5 +1,5 @@
 
-import bedalton.creatures.breed.render.cli.runMain
+import com.bedalton.creatures.breed.render.cli.runMain
 import com.bedalton.common.util.PathUtil
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.asPromise
