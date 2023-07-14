@@ -2,6 +2,10 @@ package com.bedalton.creatures.breed.render.cli.internal
 
 import com.bedalton.creatures.breed.render.support.pose.PoseRenderException
 import com.bedalton.common.util.isNotNullOrBlank
+import com.bedalton.log.LOG_DEBUG
+import com.bedalton.log.Log
+import com.bedalton.log.eIf
+import com.bedalton.log.iIf
 import kotlin.random.Random
 
 
@@ -21,8 +25,31 @@ internal fun getTintValues(tint: String?): List<Int?>? {
     var actualTint = tint?.lowercase()
         ?: return null
 
-    if (tint.isNotNullOrBlank() && tint.lowercase() in randValues) {
-        actualTint = "*:*:*"
+    if (tint.isNotNullOrBlank()) {
+        if (tint.lowercase() in randValues) {
+            actualTint = "*:*:*"
+        }
+        if (tint.startsWith('#')) {
+            actualTint = tint.substring(1)
+        }
+        if (actualTint.all { it in 'a'..'f' || it in '0'..'9' }) {
+            try {
+                if (actualTint.length == 3) {
+                    val red = "${actualTint[0]}${actualTint[0]}".toInt(16)
+                    val green = "${actualTint[1]}${actualTint[1]}".toInt(16)
+                    val blue = "${actualTint[2]}${actualTint[2]}".toInt(16)
+                    actualTint = "$red:$green:$blue"
+                } else if (actualTint.length == 6){
+                    val red = "${actualTint[0]}${actualTint[1]}".toInt(16)
+                    val green = "${actualTint[2]}${actualTint[3]}".toInt(16)
+                    val blue = "${actualTint[4]}${actualTint[5]}".toInt(16)
+                    actualTint = "$red:$green:$blue"
+                }
+            } catch (_: Exception) {
+                Log.eIf(LOG_DEBUG) { "Tint was thought to be HEX color, but failed parse; Value: $tint" }
+            }
+
+        }
     }
     val parts = actualTint.split(':')
     if (parts.size > 3) {
