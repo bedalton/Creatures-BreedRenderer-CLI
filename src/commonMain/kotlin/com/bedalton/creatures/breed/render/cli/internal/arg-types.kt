@@ -9,11 +9,6 @@ internal object PartArg : ArgType<BreedKey>(true) {
     override val description: kotlin.String
         get() = "Format {genus}:{breed_char}. Example: n:a, grendel:d; With gender: {genus}:{gender}:{breed_char}"//\n*The shorthand for GEAT is S as in Shee, not G as in Grendel
 
-    val randomValues = listOf(
-        "rand", "rand()",
-        "random", "random()",
-        "*", "r", "r:*",
-    )
     override fun convert(value: kotlin.String, name: kotlin.String): BreedKey {
 //        if (value.lowercase() in randomValues) {
 //            return BreedKey(breed = 'a' + random.nextInt(0, 26))
@@ -60,7 +55,7 @@ internal object PartArg : ArgType<BreedKey>(true) {
 @Suppress("SpellCheckingInspection")
 internal object GenderArg : ArgType<Int>(true) {
     override val description: kotlin.String
-        get() = "Gender: [F]emale or [M]ale"
+        get() = "Gender: F/Female or M/Male or random"
 
     override fun convert(value: kotlin.String, name: kotlin.String): kotlin.Int {
         return when (value.lowercase()) {
