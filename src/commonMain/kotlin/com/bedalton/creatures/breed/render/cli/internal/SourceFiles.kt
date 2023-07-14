@@ -30,8 +30,8 @@ internal data class SourceFiles(
     }
 
     val exportData: LockingDataCache<List<ExportRenderData>> = LockingDataCache {
-        Log.i { "Parsing export in data cache" }
         if (exportPath != null) {
+            Log.i { "Parsing export in data cache" }
             try {
                 ExportRenderData.from(fs, exportPath)
             } catch (e: Exception) {
