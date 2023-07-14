@@ -13,7 +13,7 @@ internal suspend fun getOutputFileName(
     increment: Boolean,
     previousFiles: MutableList<String>
 ): String {
-    if (isMultiPose && !increment) {
+    if (!isMultiPose && !increment) {
         return if (out.lowercase().endsWith(".png")) {
             out
         } else if (localVFS.isDirectory(out)) {
@@ -22,8 +22,7 @@ internal suspend fun getOutputFileName(
             "$out.png"
         }
     }
-    val prefix =
-        if (out.endsWith(".png")) {
+    val prefix = if (out.endsWith(".png")) {
             PathUtil.combine(
                 PathUtil.getWithoutLastPathComponent(out) ?: "",
                 (PathUtil.getFileNameWithoutExtension(out) ?: DEFAULT_FILE_NAME)

@@ -12,21 +12,17 @@ import com.bedalton.app.getCurrentWorkingDirectory
 import com.bedalton.cli.Flag
 import com.bedalton.common.coroutines.mapAsync
 import com.bedalton.common.util.*
-import com.bedalton.log.LOG_DEBUG
-import com.bedalton.log.LOG_VERBOSE
-import com.bedalton.log.Log
-import com.bedalton.log.iIf
+import com.bedalton.log.*
 import com.bedalton.vfs.*
 import korlibs.image.format.PNG
 import kotlinx.cli.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlin.math.exp
 import kotlin.random.Random
 
 
-class RenderBreedCommand : Subcommand("render", "Render a creature with breed options") {
+class RenderBreedCommand : Subcommand("render-creatures", "Render a creature with breed options") {
 
     private val gameVariant by option(
         GameArgType,
@@ -253,6 +249,12 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
 
     private val fileNameLock = Mutex(false)
 
+    private val open by option(
+        Flag,
+        "open",
+        description = "Attempt to open rendered image in default image program"
+    ).default(false)
+
     override fun execute() {
         GlobalScope.launch {
             executeSuspending()
@@ -433,6 +435,7 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
         // Get the actual pose renderer
         val renderer = task.poseRenderer()
 
+
         // Create RegEx for finding if a pose has an associated file name
         val poseWithNameRegex = "([0-5Xx!?]{15})[:,\\-=](.*)".toRegex()
 
@@ -470,18 +473,28 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
         )
 
         // Get start file number increment, for sequential files
-        val startI = getIncrementalFileStart(fs, out, poses.count { it.second == null })
+        val startI = if (increment) {
+            Log.iIf(LOG_VERBOSE) { "Getting incremental start" }
+            getIncrementalFileStart(fs, out, poses.count { it.second == null })
+        } else {
+            0
+        }
 
+        Log.iIf(LOG_DEBUG) { "Got Incremental start: $startI" }
+
+        val open = open
         val previousFiles = mutableListOf<String>()
         // Render pose(s)
         val wroteAll = poses.indices.map { i ->
             val pose = poses[i]
 
+            Log.iIf(LOG_VERBOSE) { "Getting out file name"}
             // Get actual file name to write to.
             // This could have been set on the CLI or could be automatically incremented
             val outActual = pose.second // get explicitly set name
                 ?.replace("[\\\\/:]".toRegex(), "_")  // Replace illegal chars
-                ?: getOutputFileName(fs, out, startI + i, isMultiPose = poses.size <= 1, increment = increment, previousFiles = previousFiles)
+                ?: getOutputFileName(fs, out, startI + i, isMultiPose = poses.size > 1, increment = increment, previousFiles = previousFiles)
+            Log.i { "Got out file name: $outActual" }
             previousFiles.add(outActual)
             Triple(i, outActual, pose)
         }.mapAsync {  (i, outToTry, pose) ->
@@ -496,8 +509,8 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
             try {
                 fileNameLock.withLock {
                     var outActual = outToTry
-                    while (fs.fileExists(outActual)) {
-                        outActual = getOutputFileName(fs, out, startI + i, isMultiPose = poses.size <= 1, increment = increment, previousFiles = previousFiles)
+                    while (fs.fileExists(outActual) && increment) {
+                        outActual = getOutputFileName(fs, out, startI + i, isMultiPose = poses.size > 1, increment = increment, previousFiles = previousFiles)
                     }
                     // Log actual filename
                     Log.iIf(LOG_DEBUG) { "writing: $outActual" }
@@ -506,6 +519,13 @@ class RenderBreedCommand : Subcommand("render", "Render a creature with breed op
 //                    delay(10)
 //                }
                     Log.iIf(LOG_DEBUG) { "Wrote Pose: $i to $outActual" }
+                    if (open) {
+                        if (!openFile(fs, outActual, Log.hasMode(LOG_DEBUG))) {
+                            Log.eIf(LOG_DEBUG) { "Failed to open $outActual in default program" }
+                        } else {
+                            Log.iIf(LOG_DEBUG) { "Should have opened file: ${outActual} in default program" }
+                        }
+                    }
                     true
                 }
             } catch (e: Exception) {
