@@ -143,12 +143,22 @@ kotlin {
             this.entryPoint = "com.bedalton.creatures.breed.render.cli.main"
         }
     }
+    linuxArm64 {
+        binaries.executable {
+            this.entryPoint = "com.bedalton.creatures.breed.render.cli.main"
+        }
+    }
     mingwX64 {
         binaries.executable {
             this.entryPoint = "com.bedalton.creatures.breed.render.cli.main"
         }
     }
     macosX64 {
+        binaries.executable {
+            this.entryPoint = "com.bedalton.creatures.breed.render.cli.main"
+        }
+    }
+    macosArm64 {
         binaries.executable {
             this.entryPoint = "com.bedalton.creatures.breed.render.cli.main"
         }
@@ -215,7 +225,9 @@ kotlin {
 listOf(
     "mingwX64",
     "macosX64",
-    "linuxX64"
+    "macosArm64",
+    "linuxX64",
+    "linuxArm64"
 ).forEach { target ->
     tasks.create("rename${target.capitalize()}Executable", RenameNativeExecutableTask::class.java) {
         group = "native"
