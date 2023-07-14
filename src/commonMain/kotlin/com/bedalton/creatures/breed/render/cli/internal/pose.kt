@@ -7,7 +7,7 @@ import com.bedalton.creatures.breed.render.support.pose.PoseStringUtil
 import com.bedalton.creatures.common.structs.GameVariant
 
 internal fun resolvePose(variant: GameVariant, pose: String, mood: Mood?, eyesClosed: Boolean?): Pose {
-    val randomValues = "rand(om)?([(-:].+[)]?)?".toRegex(RegexOption.IGNORE_CASE)
+    val randomValues = "(rand(?:om))?([(-:=].+[)]?)?".toRegex(RegexOption.IGNORE_CASE)
         .matchEntire(pose)
         ?.groupValues
         ?.drop(1)
@@ -20,12 +20,46 @@ internal fun resolvePose(variant: GameVariant, pose: String, mood: Mood?, eyesCl
                 eyesClosed = eyesClosed
             )
         }
+
         else -> {
-            PoseStringUtil.fromPoseString(variant, pose)
-                .copy(
-                    mood = mood,
-                    eyesClosed = eyesClosed == true
-                )
+            when (pose.lowercase()) {
+                "left", "l" -> Pose.defaultPose(variant)
+                    .copy(
+                        headFacing = PoseFacing.VIEWER_LEFT,
+                        bodyFacing = PoseFacing.VIEWER_LEFT,
+                        mood = mood,
+                        eyesClosed = eyesClosed
+                    )
+
+                "right", "r" -> Pose.defaultPose(variant)
+                    .copy(
+                        headFacing = PoseFacing.VIEWER_RIGHT,
+                        bodyFacing = PoseFacing.VIEWER_RIGHT,
+                        mood = mood,
+                        eyesClosed = eyesClosed
+                    )
+
+                "front", "f", "forward" -> Pose.defaultPose(variant)
+                    .copy(
+                        headFacing = PoseFacing.FRONT,
+                        bodyFacing = PoseFacing.FRONT,
+                        mood = mood,
+                        eyesClosed = eyesClosed
+                    )
+                "back", "b", "backwards", "away", "a" -> Pose.defaultPose(variant)
+                    .copy(
+                        headFacing = PoseFacing.BACK,
+                        bodyFacing = PoseFacing.BACK,
+                        mood = mood,
+                        eyesClosed = eyesClosed
+                    )
+
+                else -> PoseStringUtil.fromPoseString(variant, pose)
+                    .copy(
+                        mood = mood,
+                        eyesClosed = eyesClosed == true
+                    )
+            }
         }
     }
 }
