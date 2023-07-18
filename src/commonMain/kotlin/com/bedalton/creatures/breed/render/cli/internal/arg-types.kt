@@ -60,8 +60,8 @@ internal object GenderArg : ArgType<Int>(true) {
     override fun convert(value: kotlin.String, name: kotlin.String): kotlin.Int {
         return when (value.lowercase()) {
             "?", "any", "rand", "random", "*", "-1", "0" -> -1
-            "m", "male", "1" -> 0
-            "f", "female", "2" -> 1
+            "m", "male", "1" -> 1
+            "f", "female", "2" -> 2
             "3" -> /* Norn Binary */ -1 // Set to random
             else -> throw Exception("Invalid gender specified; Expected: [m]ale or [f]emale; Found: $value")
         }
