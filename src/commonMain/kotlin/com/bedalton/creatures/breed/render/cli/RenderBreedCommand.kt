@@ -9,6 +9,7 @@ import com.bedalton.common.util.*
 import com.bedalton.creatures.breed.render.cli.internal.*
 import com.bedalton.creatures.breed.render.renderer.BreedRendererBuilder
 import com.bedalton.creatures.breed.render.renderer.getColorTransform
+import com.bedalton.creatures.breed.render.support.pose.Pose
 import com.bedalton.creatures.breed.render.support.pose.Pose.Companion.defaultPose
 import com.bedalton.creatures.cli.GameArgType
 import com.bedalton.creatures.common.structs.BreedKey
@@ -598,8 +599,9 @@ class RenderBreedCommand(
         }.all { it }
 
         if (usesRandom) {
-            logValuesForRandom(task)
+            logValuesForRandom(task, poses.map { it.first})
         }
+
         if (loop) {
             if (!usesRandom && !randomPoses) {
                 Log.e { "Cannot loop rendering without random colors or poses" }
@@ -824,7 +826,7 @@ class RenderBreedCommand(
         return globResult + folders
     }
 
-    private fun logValuesForRandom(task: BreedRendererBuilder) {
+    private fun logValuesForRandom(task: BreedRendererBuilder, poses: List<Pose>) {
 
 
         var i = 0
@@ -845,22 +847,23 @@ class RenderBreedCommand(
 
         // Append values function if value is random
         val onRandom = random@{ arg: String, work: StringBuilder.() -> Unit ->
-                // See if value is random
-                val next = args.getOrNull(i)
-                    ?.lowercase()
-                    ?: return@random false // Returns should Continue
+            // See if value is random
+            val next = args.getOrNull(i)
+                ?.lowercase()
+                ?: return@random false // Returns should Continue
 
-                if (!next.contains('*') && !next.contains("rand")) {
-                    // not random value
-                    out.append(' ').append(arg)
-                    return@random true
-                }
-                i++
-                out.bold(bold, work)
-                true
+            if (!next.contains('*') && !next.contains("rand")) {
+                // not random value
+                out.append(' ').append(arg)
+                return@random true
             }
+            i++
+            out.bold(bold, work)
+            true
+        }
 
 
+        var pose = -1
         while (i < args.size) {
             // Initial arg
             val arg = args.getOrNull(i++)
@@ -896,6 +899,33 @@ class RenderBreedCommand(
                     append(red).append(':')
                     append(green).append(':')
                     append(blue)
+                }
+
+                "--pose", "-p" -> {
+                    val value = args.getOrNull(i + 1)
+                        ?: break
+                    if (!randomPoseRegex.matches(value.trim())) {
+                        out
+                            .append(' ')
+                            .append(arg)
+                        continue
+                    }
+
+                    val poseString = poses.getOrNull(++pose)
+                        ?.toPoseString()
+                    if (poseString == null) {
+                        out.append(' ')
+                            .append(arg)
+                        continue
+                    }
+                    i++
+                    out.bold(bold) {
+                        append(' ')
+                        append("--pose")
+                        append(' ')
+                        append(poseString)
+                    }
+                    true
                 }
                 else -> {
                     out.append(' ').append(arg)
@@ -992,7 +1022,7 @@ class RenderBreedCommand(
         }
 
 
-        val appendColor = append@{color: String, value: Int? ->
+        val appendColor = append@{ color: String, value: Int? ->
             if (value == null) {
                 return@append
             }
