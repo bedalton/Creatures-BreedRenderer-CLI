@@ -12,6 +12,8 @@ import com.bedalton.app.getCurrentWorkingDirectory
 import com.bedalton.cli.Flag
 import com.bedalton.common.coroutines.mapAsync
 import com.bedalton.common.util.*
+import com.bedalton.creatures.breed.render.renderer.getColorTransform
+import com.bedalton.creatures.sprite.util.PaletteTransform
 import com.bedalton.log.*
 import com.bedalton.vfs.*
 import korlibs.image.format.PNG
@@ -319,7 +321,6 @@ class RenderBreedCommand : Subcommand("render-creatures", "Render a creature wit
             .withTrimWhitespace(trim)
             .withNonIntersectingLimbs(nonIntersectingLimbs)
             .withPadding(padding)
-            .applySwapAndRotation()
 
         val genomePath = finalSources.getGenomePath()
         val genomeVariant = if (genomeVariant !in 0..8) {
@@ -391,14 +392,17 @@ class RenderBreedCommand : Subcommand("render-creatures", "Render a creature wit
 
 
             Log.iIf(LOG_DEBUG) { "Applied parts from genome" }
-            head?.let { task = task.withHead(it) }
-            body?.let { task = task.withBody(it) }
-            legs?.let { task = task.withLegs(it) }
-            arms?.let { task = task.withArms(it) }
-            tail?.let { task = task.withTail(it) }
-            hair?.let { task = task.withHair(it) }
             setParts = true
+
+            (head ?: breed)?.let { task = task.withHead(it) }
+            (body ?: breed)?.let { task = task.withBody(it) }
+            (legs ?: breed)?.let { task = task.withLegs(it) }
+            (arms ?: breed)?.let { task = task.withArms(it) }
+            (tail ?: breed)?.let { task = task.withTail(it) }
+            (hair ?: breed)?.let { task = task.withHair(it) }
         }
+
+
 
         if (!setParts) {
             collectMissingBreedParts(gameVariant, missing)
@@ -407,12 +411,16 @@ class RenderBreedCommand : Subcommand("render-creatures", "Render a creature wit
             if (missing.size > 0) {
                 exitWithError(RENDER_ERROR_CODE__MISSING_REQUIRED_BREED_VALUES, missing.joinToString(","))
             }
-            task = task.applyBreeds(gameVariant)
         }
+
+        task = task.applyBreeds(gameVariant)
 
         // Set gender
         task = task.withFallbackGender(gender)
 
+        val transform = genome?.getColorTransform(gender, age, genomeVariant)
+
+        task = task.applySwapAndRotation(transform)
 
         // Get out base path. Could be a file or a folder
         val outWithExpandedTilde = out.expandTildeIfNecessary().stripDotSlash()
@@ -494,7 +502,7 @@ class RenderBreedCommand : Subcommand("render-creatures", "Render a creature wit
             val outActual = pose.second // get explicitly set name
                 ?.replace("[\\\\/:]".toRegex(), "_")  // Replace illegal chars
                 ?: getOutputFileName(fs, out, startI + i, isMultiPose = poses.size > 1, increment = increment, previousFiles = previousFiles)
-            Log.i { "Got out file name: $outActual" }
+            Log.iIf(LOG_VERBOSE) { "Got out file name: $outActual" }
             previousFiles.add(outActual)
             Triple(i, outActual, pose)
         }.mapAsync {  (i, outToTry, pose) ->
@@ -536,7 +544,7 @@ class RenderBreedCommand : Subcommand("render-creatures", "Render a creature wit
         return if (wroteAll) 0 else 1
     }
 
-    private fun BreedRendererBuilder.applySwapAndRotation(): BreedRendererBuilder {
+    private fun BreedRendererBuilder.applySwapAndRotation(genomeTransform: PaletteTransform?): BreedRendererBuilder {
         // Modifiable task
         var out = this
 
@@ -562,11 +570,11 @@ class RenderBreedCommand : Subcommand("render-creatures", "Render a creature wit
         // Apply swap and rotate if needed
         return if (rgb != null || swap != null || rotation != null) {
             out.withTintSwapAndRotate(
-                red = rgb?.get(0),
-                green = rgb?.get(1),
-                blue = rgb?.get(2),
-                swap = swap,
-                rotation = rotation,
+                red = rgb?.get(0) ?: genomeTransform?.red,
+                green = rgb?.get(1) ?: genomeTransform?.green,
+                blue = rgb?.get(2) ?: genomeTransform?.blue,
+                swap = swap ?: genomeTransform?.swap,
+                rotation = rotation ?: genomeTransform?.rotation,
                 throwOnInvalidValue = true
             )
         } else {
