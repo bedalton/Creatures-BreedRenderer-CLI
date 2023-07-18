@@ -11,7 +11,7 @@ import com.bedalton.log.Log
 suspend fun runMain(args: Array<String>): Int {
     setIsCLI(true)
 
-    val parser = RenderBreedCommand().apply {
+    val parser = RenderBreedCommand(args).apply {
         useDefaultHelpShortName = false
     }
 
