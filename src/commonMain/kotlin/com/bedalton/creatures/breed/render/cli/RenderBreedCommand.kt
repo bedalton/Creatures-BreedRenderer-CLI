@@ -283,6 +283,11 @@ class RenderBreedCommand(
         description = "Print an equivalent alter genome statement minus the filename"
     ).default(false)
 
+    private val loop by option(
+        Flag,
+        fullName = "loop",
+        description = "Loop random generations, until use writes print or exit or hits ctrl+c"
+    ).default(false)
 
     override fun execute() {
         GlobalScope.launch {
@@ -476,6 +481,8 @@ class RenderBreedCommand(
         // Create RegEx for finding if a pose has an associated file name
         val poseWithNameRegex = "([0-5Xx!?]{15})[:,\\-=](.*)".toRegex()
 
+        var randomPoses = false
+
         // Map pose strings to poses
         val poses = (poses.ifEmpty { listOf(defaultPose(gameVariant).toPoseString()) })
             .map { poseIn ->
@@ -484,6 +491,9 @@ class RenderBreedCommand(
                     ?.groupValues
                     ?.drop(0)
                 val pose = temp?.getOrNull(0) ?: poseIn
+                if (randomPoseRegex.matches(pose.trim() ?: "")) {
+                    randomPoses = true
+                }
                 val fileName = temp?.getOrNull(1)
                 Pair(resolvePose(gameVariant, pose, mood, eyesClosed), fileName)
             }
@@ -590,7 +600,21 @@ class RenderBreedCommand(
         if (usesRandom) {
             logValuesForRandom(task)
         }
+        if (loop) {
+            if (!usesRandom && !randomPoses) {
+                Log.e { "Cannot loop rendering without random colors or poses" }
+            } else {
+                val renderAgain = promptYesNo(
+                    "${BOLD}Continue rendering [Default=True], type \"n\" or \"no\" to stop${RESET}",
+                    appendValidResponses = false,
+                    default = true
+                ).should
 
+                if (renderAgain) {
+                    return executeWithResult()
+                }
+            }
+        }
         if (shouldPrintAlterGenomeCommand) {
             logAlterGenomeCommandText(task, gameVariant)
         }

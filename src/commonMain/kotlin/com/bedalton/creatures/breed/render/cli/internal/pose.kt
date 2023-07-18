@@ -6,8 +6,10 @@ import com.bedalton.creatures.breed.render.support.pose.PoseFacing
 import com.bedalton.creatures.breed.render.support.pose.PoseStringUtil
 import com.bedalton.creatures.common.structs.GameVariant
 
+internal val randomPoseRegex = "(rand(?:om))?([(-:=].+[)]?)?".toRegex(RegexOption.IGNORE_CASE)
+
 internal fun resolvePose(variant: GameVariant, pose: String, mood: Mood?, eyesClosed: Boolean?): Pose {
-    val randomValues = "(rand(?:om))?([(-:=].+[)]?)?".toRegex(RegexOption.IGNORE_CASE)
+    val randomValues = randomPoseRegex
         .matchEntire(pose)
         ?.groupValues
         ?.drop(1)
