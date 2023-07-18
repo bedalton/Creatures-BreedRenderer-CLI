@@ -1,26 +1,36 @@
 package com.bedalton.creatures.breed.render.cli
 
+import com.bedalton.app.exitNativeWithError
+import com.bedalton.app.getCurrentWorkingDirectory
+import com.bedalton.cli.Flag
+import com.bedalton.cli.promptYesNo
+import com.bedalton.common.coroutines.mapAsync
+import com.bedalton.common.util.*
 import com.bedalton.creatures.breed.render.cli.internal.*
 import com.bedalton.creatures.breed.render.renderer.BreedRendererBuilder
+import com.bedalton.creatures.breed.render.renderer.getColorTransform
 import com.bedalton.creatures.breed.render.support.pose.Pose.Companion.defaultPose
 import com.bedalton.creatures.cli.GameArgType
 import com.bedalton.creatures.common.structs.BreedKey
 import com.bedalton.creatures.common.structs.GameVariant
+import com.bedalton.creatures.common.util.getGenusString
 import com.bedalton.creatures.genetics.genome.Genome
-import com.bedalton.app.exitNativeWithError
-import com.bedalton.app.getCurrentWorkingDirectory
-import com.bedalton.cli.Flag
-import com.bedalton.common.coroutines.mapAsync
-import com.bedalton.common.util.*
-import com.bedalton.creatures.breed.render.renderer.getColorTransform
 import com.bedalton.creatures.sprite.util.PaletteTransform
 import com.bedalton.log.*
+import com.bedalton.log.ConsoleColors.BLACK_BACKGROUND
+import com.bedalton.log.ConsoleColors.BOLD
+import com.bedalton.log.ConsoleColors.RESET
+import com.bedalton.log.ConsoleColors.UNDERLINE_WHITE
+import com.bedalton.log.ConsoleColors.WHITE
 import com.bedalton.vfs.*
 import korlibs.image.format.PNG
 import kotlinx.cli.*
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlin.random.Random
 
 
@@ -343,6 +353,7 @@ class RenderBreedCommand : Subcommand("render-creatures", "Render a creature wit
 
         var setParts = false
         var genome: Genome? = null
+
         // Collect missing breed information
         if (genomePath.isNotNullOrBlank()) {
             val (genomeTemp, genderIfC2Egg) = readGenome(finalSources, genomePath, genomeVariant)
@@ -353,9 +364,10 @@ class RenderBreedCommand : Subcommand("render-creatures", "Render a creature wit
             }
         }
 
+        // Get data from imports
         val exportData = finalSources.exportData.getData()
         if (exportData != null) {
-            Log.iIf(LOG_DEBUG) { "Export Data:\n$exportData"}
+            Log.iIf(LOG_DEBUG) { "Export Data:\n$exportData" }
             if (exportData.size > 1) {
                 Log.w { "Too many exports found in file. Using first" }
             }
@@ -492,20 +504,32 @@ class RenderBreedCommand : Subcommand("render-creatures", "Render a creature wit
 
         val open = open
         val previousFiles = mutableListOf<String>()
+
         // Render pose(s)
         val wroteAll = poses.indices.map { i ->
             val pose = poses[i]
 
-            Log.iIf(LOG_VERBOSE) { "Getting out file name"}
+            Log.iIf(LOG_VERBOSE) { "Getting out file name" }
+
             // Get actual file name to write to.
             // This could have been set on the CLI or could be automatically incremented
             val outActual = pose.second // get explicitly set name
                 ?.replace("[\\\\/:]".toRegex(), "_")  // Replace illegal chars
-                ?: getOutputFileName(fs, out, startI + i, isMultiPose = poses.size > 1, increment = increment, previousFiles = previousFiles)
+                ?: getOutputFileName(
+                    fs,
+                    out,
+                    startI + i,
+                    isMultiPose = poses.size > 1,
+                    increment = increment,
+                    previousFiles = previousFiles
+                )
             Log.iIf(LOG_VERBOSE) { "Got out file name: $outActual" }
+
             previousFiles.add(outActual)
+
             Triple(i, outActual, pose)
-        }.mapAsync {  (i, outToTry, pose) ->
+
+        }.mapAsync { (i, outToTry, pose) ->
 
             // Actually render the image
             val rendered = renderer(pose.first, scale)
@@ -518,14 +542,19 @@ class RenderBreedCommand : Subcommand("render-creatures", "Render a creature wit
                 fileNameLock.withLock {
                     var outActual = outToTry
                     while (fs.fileExists(outActual) && increment) {
-                        outActual = getOutputFileName(fs, out, startI + i, isMultiPose = poses.size > 1, increment = increment, previousFiles = previousFiles)
+                        outActual = getOutputFileName(
+                            fs,
+                            out,
+                            startI + i,
+                            isMultiPose = poses.size > 1,
+                            increment = increment,
+                            previousFiles = previousFiles
+                        )
                     }
                     // Log actual filename
                     Log.iIf(LOG_DEBUG) { "writing: $outActual" }
                     fs.write(outActual, outputBytes)
-//                if (i != lastIndex) {
-//                    delay(10)
-//                }
+
                     Log.iIf(LOG_DEBUG) { "Wrote Pose: $i to $outActual" }
                     if (open) {
                         if (!openFile(fs, outActual, Log.hasMode(LOG_DEBUG))) {
@@ -633,18 +662,6 @@ class RenderBreedCommand : Subcommand("render-creatures", "Render a creature wit
         }
         if (tail == null && gameVariant != GameVariant.C1) {
             missing.add("tail")
-        }
-    }
-
-    private fun assertNotMissing(missing: List<String>, genomeVariant: Int? = null) {
-        // Breeds are missing
-        if (missing.isNotEmpty()) {
-            val variantText = if (genomeVariant != null && genomeVariant != 0) {
-                " in genome with variant $genomeVariant"
-            } else {
-                ""
-            }
-            exitWithError(RENDER_ERROR_CODE__MISSING_REQUIRED_BREED_VALUES, missing.joinToString(",") + variantText)
         }
     }
 
@@ -769,6 +786,7 @@ private suspend fun constructFileSystem(
     Log.iIf(LOG_DEBUG) { "Command running with ${rawSourcesList.size} source paths:\n\t-${rawSourcesList.joinToString("\n\t-")}" }
 
 
+    @Suppress("RegExpRedundantEscape")
     val aliasPathPattern = "\\[([^\\]]+)\\]=(.+)".toRegex()
 
     val sourceRootDirectories = (rawSourcesList.map {
@@ -822,7 +840,13 @@ private suspend fun constructFileSystem(
     // Combine physical and aliased source files
     val sourcesWithAliasedNames = rawSourcesList.filterNot(aliasPathPattern::matches) + aliasedPaths.map { it.path }
 
-    Log.iIf(LOG_DEBUG) { "${sourcesWithAliasedNames.size} sources with aliased names:\n\t- ${sourcesWithAliasedNames.joinToString("\n\t- ")}" }
+    Log.iIf(LOG_DEBUG) {
+        "${sourcesWithAliasedNames.size} sources with aliased names:\n\t- ${
+            sourcesWithAliasedNames.joinToString(
+                "\n\t- "
+            )
+        }"
+    }
 
 
     // Construct file system
@@ -838,6 +862,7 @@ private suspend fun constructFileSystem(
     if (genomeFiles != null) {
         fsPhysical.addSourceRoots(genomeFiles.first)
     }
+
     val exportPathQualified = if (exportPath != null) {
         if (!PathUtil.isAbsolute(exportPath)) {
             if (currentWorkingDirectory == null) {
@@ -853,10 +878,10 @@ private suspend fun constructFileSystem(
     }
 
     if (exportPathQualified != null) {
-        Log.iIf(LOG_DEBUG) { "ExportPathIn: $exportPath; Qualified: $exportPathQualified"}
+        Log.iIf(LOG_DEBUG) { "ExportPathIn: $exportPath; Qualified: $exportPathQualified" }
         fsPhysical.addSourceRoot(exportPathQualified)
     } else {
-        Log.iIf(LOG_VERBOSE) { "No export path passed in"}
+        Log.iIf(LOG_VERBOSE) { "No export path passed in" }
     }
 
     return SourceFiles(
@@ -867,5 +892,3 @@ private suspend fun constructFileSystem(
         exportPath = exportPathQualified
     )
 }
-
-private val spriteExtensions = setOf("spr", "s16", "c16")
