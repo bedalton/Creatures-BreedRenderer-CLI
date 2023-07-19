@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add output of random values used in colors
 - Add options to continuously generate random images
 - Add option to print `breed-util alter-genome` statement if possible
+- Prevent replacing all poses with random poses
 
 ## [1.0.0] - 2023-07-17
 - Initial release
