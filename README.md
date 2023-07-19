@@ -200,6 +200,9 @@ Color Values are 0-255; With 128 = No Change
 - `--debug` - Add additional debug logging     
 - `--verbose` \[flag\] -> Use verbose logging
 - `--help` -> Print usage info
+- `--open` -> Open image after generation
+- `--print-alter-genome-command` \[flag\] -> Print an equivalent alter genome statement minus the filename for the breed-util
+- `--loop` \[flag\] -> Loop random generations, until use writes `no` or `n`
 
 
 ### Normal Render
