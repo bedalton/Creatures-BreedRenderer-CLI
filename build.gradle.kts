@@ -217,6 +217,7 @@ kotlin {
             languageSettings.optIn("kotlinx.coroutines.ExperimentalCoroutinesApi")
             languageSettings.optIn("kotlinx.coroutines.DelicateCoroutinesApi")
             languageSettings.optIn("kotlinx.cli.ExperimentalCli")
+            languageSettings.optIn("kotlin.contracts.ExperimentalContracts")
         }
     }
 }
