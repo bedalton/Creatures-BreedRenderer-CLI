@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2023-07-28
+- Fix missing breed errors on exports 
+
 ## [1.1.0] - 2023-07-18
 - Add output of random values used in colors
 - Add options to continuously generate random images
