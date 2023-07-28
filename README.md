@@ -16,14 +16,6 @@ Note when globbing a path for some females, it is sometimes required to include
 the male genus as well for breeds where the females use the male ATTs
 
 
-## Usage
-
-### CLI Basics
-
-#### Absolute vs Relative paths
-When using
-
-
 ### Usage
 `render-creature {output} [...options] {sources}`
 
@@ -62,79 +54,6 @@ Format: **{genus}:{breed}**
 - `--legs`, `-l` -> **Legs** breed
 - `--tail`, `-t` -> **Tail** Breed
 - `--hair` -> **Hair** breed
-
-#### Pose
-**Option**
-- `--pose`, `-p` -> The creature **pose** to render
-**Format: 15 characters
-- **Tilt** - `0-3` 
-  - `0` - down/back (furthest)
-  - `1` - down/back (minor), or straight
-  - `2` - forward/up (minor)
-  - `3` - forward/up (furthest)
-- char\[**0**\] - **Direction** - 
-  - `0` - Backwards
-  - `1` - Forward
-  - `2` - Right
-  - `3` - Left; 
-  - Not used: 
-    - `?` - Towards "\_IT\_"
-    - `!` - Away From `_IT_`
-    - `X` - No Change
-- char\[**1**\] - **Head** - { Tilt } `0-3`, `4` - Forward, `5` - Backwards 
-  - Not used:
-    - `?`:Towards `_IT_`
-    - `X`:No Change)
-- char\[**2**\] - **Body** - { Tilt }
-- char\[**3**\] - **Left Thigh** - { Tilt }
-- char\[**4**\] - **Left Shin** - { Tilt }
-- char\[**5**\] - **Left Foot** - { Tilt }
-- char\[**6**\] - **Right Thigh** - { Tilt }
-- char\[**7**\] - **Right Shin** - { Tilt }
-- char\[**8**\] - **Right Foot** - { Tilt }
-- char\[**9**\] - **Left Humerus** - { Tilt }
-- char\[**10**\] - **Left Radius** - { Tilt }
-- char\[**11**\] - **Right Humerus** - { Tilt }
-- char\[**12**\] - **Right Radius** - { Tilt }
-- char\[**13**\] - **Tail Root** - { Tilt }
-- char\[**14**\] - **Tail Tip** - { Tilt }
-
-**Auto Options**  
-`--pose rand` - Generate a random pose, **Most likely weird**  
-`--pose left` - Left facing default standing pose  
-`--pose right` - Right facing default standing pose  
-`--pose front` - Front facing default standing pose  
-`--pose back` - Back facing default standing pose  
-
-**Multiple Poses**
-You can define multiple poses to have them rendered using the same breed information.  
-This is faster than running the command multiple times changing only the pose
-
-If doing multiple images, the name of each rendered image will be the output file name, 
-and the pose number.
-
-You can choose specific filenames for pose by separating the pose
-from the name using `:` (colon)  
-**Example**:`--pose 312222222111112:"Facing Left"` would create an image called `Facing Left.png`,
-for the pose given
-
-**Pose Examples**  
-Standing facing left - `312222222111112`
-- char\[**0**\] - Direction: **3** Left
-- char\[**1**\] - Head - **1** Straight
-- char\[**2**\] - Body - **2** - Up/Forward
-- char\[**3**\] - Left Thigh - **2** - Up/Forward
-- char\[**4**\] - Left Shin - **2** - Up/Forward
-- char\[**5**\] - Left Foot - **2** - Up/Forward
-- char\[**6**\] - Right Thigh - **2** - Up/Forward
-- char\[**7**\] - Right Shin - **2** - Up/Forward
-- char\[**8**\] - Right Foot - **2** - Up/Forward
-- char\[**9**\] - Left Humerus - **1** - Back (minor)
-- char\[**10**\] - Left Radius - **1** - Back (minor)
-- char\[**11**\] - Right Humerus - **1** - Back (minor)
-- char\[**12**\] - Right Radius - **1** - Back (minor)
-- char\[**13**\] - Tail Base - **2** - Up/Forward
-- char\[**14**\] - Tail Tip - **2** - Up/Forward
 
 #### Creature Options
 - `--age`\[required\] -  The **age** of the creature to render 
@@ -196,8 +115,81 @@ Color Values are 0-255; With 128 = No Change
   - rotation < 128 Blue->Green->Red(->Blue)
   - Example: `--rotation 90`
 
+#### Pose
+**Option**
+- `--pose`, `-p` -> The creature **pose** to render
+  **Format: 15 characters
+- **Tilt** - `0-3`
+  - `0` - down/back (furthest)
+  - `1` - down/back (minor), or straight
+  - `2` - forward/up (minor)
+  - `3` - forward/up (furthest)
+- char\[**0**\] - **Direction** -
+  - `0` - Backwards
+  - `1` - Forward
+  - `2` - Right
+  - `3` - Left;
+  - Not used:
+    - `?` - Towards "\_IT\_"
+    - `!` - Away From `_IT_`
+    - `X` - No Change
+- char\[**1**\] - **Head** - { Tilt } `0-3`, `4` - Forward, `5` - Backwards
+  - Not used:
+    - `?`:Towards `_IT_`
+    - `X`:No Change)
+- char\[**2**\] - **Body** - { Tilt }
+- char\[**3**\] - **Left Thigh** - { Tilt }
+- char\[**4**\] - **Left Shin** - { Tilt }
+- char\[**5**\] - **Left Foot** - { Tilt }
+- char\[**6**\] - **Right Thigh** - { Tilt }
+- char\[**7**\] - **Right Shin** - { Tilt }
+- char\[**8**\] - **Right Foot** - { Tilt }
+- char\[**9**\] - **Left Humerus** - { Tilt }
+- char\[**10**\] - **Left Radius** - { Tilt }
+- char\[**11**\] - **Right Humerus** - { Tilt }
+- char\[**12**\] - **Right Radius** - { Tilt }
+- char\[**13**\] - **Tail Root** - { Tilt }
+- char\[**14**\] - **Tail Tip** - { Tilt }
+
+**Auto Options**  
+`--pose rand` - Generate a random pose, **Most likely weird**  
+`--pose left` - Left facing default standing pose  
+`--pose right` - Right facing default standing pose  
+`--pose front` - Front facing default standing pose  
+`--pose back` - Back facing default standing pose
+
+**Multiple Poses**
+You can define multiple poses to have them rendered using the same breed information.  
+This is faster than running the command multiple times changing only the pose
+
+If doing multiple images, the name of each rendered image will be the output file name,
+and the pose number.
+
+You can choose specific filenames for pose by separating the pose
+from the name using `:` (colon)  
+**Example**:`--pose 312222222111112:"Facing Left"` would create an image called `Facing Left.png`,
+for the pose given
+
+**Pose Examples**  
+Standing facing left - `312222222111112`
+- char\[**0**\] - Direction: **3** Left
+- char\[**1**\] - Head - **1** Straight
+- char\[**2**\] - Body - **2** - Up/Forward
+- char\[**3**\] - Left Thigh - **2** - Up/Forward
+- char\[**4**\] - Left Shin - **2** - Up/Forward
+- char\[**5**\] - Left Foot - **2** - Up/Forward
+- char\[**6**\] - Right Thigh - **2** - Up/Forward
+- char\[**7**\] - Right Shin - **2** - Up/Forward
+- char\[**8**\] - Right Foot - **2** - Up/Forward
+- char\[**9**\] - Left Humerus - **1** - Back (minor)
+- char\[**10**\] - Left Radius - **1** - Back (minor)
+- char\[**11**\] - Right Humerus - **1** - Back (minor)
+- char\[**12**\] - Right Radius - **1** - Back (minor)
+- char\[**13**\] - Tail Base - **2** - Up/Forward
+- char\[**14**\] - Tail Tip - **2** - Up/Forward
+
 #### Other
-- `--debug` - Add additional debug logging     
+- `--debug` - Add additional debug logging
 - `--verbose` \[flag\] -> Use verbose logging
 - `--help` -> Print usage info
 - `--open` -> Open image after generation
@@ -209,6 +201,111 @@ Color Values are 0-255; With 128 = No Change
 
 Render a typical ron norn  
 
-Command: ```
-render-breed.exe C1 ron-norn-m.png--age 3 --gender m --breed n:6 --scale 2 --pose 312222222111110 ./Images ./Body^ Data
+Command: 
+```BASH
+render-breed.exe C1 ron-norn-m.png--age 3 --gender m --breed n:6 --scale 2 --pose 312222222111110 "./Images" "./Body Data"
 ```
+
+--------
+
+## Appendix: Command Line Basics
+
+### Input Files: Paths
+
+Paths can be relative to the [current working directory](#current-working-directory) or absolute.  
+On windows paths are separated with `\\`. When viewing examples, keep this in mind
+
+Any time a file or folder is needed, you may drag one into the command line window
+
+### Current Working Directory
+
+**Current working directory** is the path your terminal or Command Prompt thinks you are.
+
+- Usually when starting a command prompt or terminal, this is your **HOME** directory
+- **This is not usually the folder you have open** or are viewing when you open the command prompt.
+- To Navigate to the folder you want, us `cd ` (plus a space)
+  - then enter/paste the absolute path to the folder
+    - `c:/MyFolder` or `"/Users/{myname}/My Folder"`
+  - **drag** the folder from explore,finder, etc. into the CMD or Terminal window
+  - If typing in a folder with a space, surround it with quotation marks
+
+### Arguments
+
+Arguments are values that are defined by their position.  
+They do not use a prefix they are simply used.   
+In this README, they will be surrounded by `{` and `}`  
+i.e. `breed-util convert-breed {game-target}`
+
+- `breed-util convert-breed` is entered as is,
+- `{game-target}` must be substituted by the target game
+- Example: `breed-util convert-breed C2`
+
+### Options
+
+come after the `breed-util` command and its subcommand, and come in two flavors
+
+#### Regular Options
+
+Most options are followed by a value i.e. `--input-genus norn`.
+
+- Here the *option* is `--input-genus` and the *value* is `norn`
+
+##### Flags
+
+Flags take **no arguments**, and represent a **true** value to the flag
+
+- Flags take no argument so do not put `yes` or `no` after it
+- **Using a flag** = **true**; Presence of a flag, means that value is true or enabled
+- **No flag** = **false**; Absence of flag means that value is false
+
+---
+
+## Appendix: macOS
+
+### Open Terminal
+
+You can open terminal through [spotlight](#open-terminal-from-spotlight) or [Finder](#open-terminal-through-finder)
+
+#### Open Terminal From Spotlight
+
+1. Open Spotlight
+  - Shortcut Key - `CMND+SPACE`
+  - OR Click the magnifying-glass icon on the menubar in the upper right
+2. Type in `Terminal`
+3. Select `Terminal.app` and hit enter
+4. \[Optional] Set your current working directory if desired using `cd` (see [current working directory](#current-working-directory))
+
+#### Open Terminal Through Finder
+
+1. Open Finder
+2. Open the `Applications` Folder
+3. Open the `Utilities` folder
+4. Double Click `Terminal.app`
+5. \[Optional] Set your current working directory if desired using `cd` (see [current working directory](#current-working-directory))
+
+### GATEKEEPER
+
+MacOS may prevent you from opening the executable as the binary is not signed
+
+#### Allow Program in Terminal
+
+1. copy and paste `xattr -d com.apple.quarantine `
+2. Add a space after it
+3. Drag the `breed-util` executable into the folder and hit enter
+4. Enter password if prompted
+
+#### Allow Program in System Setting
+
+1. Open System Settings
+2. On the left side find `Privacy and Security`
+3. Find `Security`
+4. Click `Open Anyways`
+5. Enter Password if prompted
+
+## Appendix: Windows
+### Open CMD (command line window)
+1. Click the search bar next to the windows icon
+2. Type `CMD`
+3. Click `Command Prompt`
+4. \[Optional] Set your current working directory if desired using `cd` (see [current working directory](#current-working-directory)) 
+
