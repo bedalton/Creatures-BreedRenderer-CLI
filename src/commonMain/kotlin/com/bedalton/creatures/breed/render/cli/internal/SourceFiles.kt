@@ -3,6 +3,7 @@ package com.bedalton.creatures.breed.render.cli.internal
 import com.bedalton.creatures.exports.minimal.ExportRenderData
 import com.bedalton.app.exitNativeWithError
 import com.bedalton.common.coroutines.LockingDataCache
+import com.bedalton.creatures.exports.minimal.ExportParser
 import com.bedalton.log.LOG_VERBOSE
 import com.bedalton.log.Log
 import com.bedalton.log.iIf
@@ -33,7 +34,7 @@ internal data class SourceFiles(
         if (exportPath != null) {
             Log.i { "Parsing export in data cache" }
             try {
-                ExportRenderData.from(fs, exportPath)
+                ExportParser.parseExport(fs, exportPath)
             } catch (e: Exception) {
                 exitNativeWithError(1, "Failed to parse export; ${e.formatted()}")
             }
