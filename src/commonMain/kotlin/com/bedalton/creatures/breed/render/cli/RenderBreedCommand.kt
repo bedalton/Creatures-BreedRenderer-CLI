@@ -22,7 +22,7 @@ import kotlinx.coroutines.withContext
 
 
 class RenderBreedCommand(
-    val args: Array<String>
+    val args: Array<String>,
 ) : Subcommand(
     "render-creatures",
     "Render a creature with breed options"
@@ -404,13 +404,21 @@ class RenderBreedCommand(
 
         Log.iIf(LOG_DEBUG) { "CLI: " + task.toCLIOpts(false) }
 
+        val posesAfterEemFooReplacement = poses.map {
+            if (it.second == EEMFOO_PLACEHOLDER) {
+                randomEemFooPose(gameVariant, gender.value!!, age.value!!) to null
+            } else {
+                it
+            }
+        }
+
         // Get the actual pose renderer
         val renderer = task.poseRenderer()
 
         val wroteAll = renderPoses(
             outputFileSystem,
             open,
-            poses,
+            posesAfterEemFooReplacement,
             getOutputFile,
             renderer,
         )

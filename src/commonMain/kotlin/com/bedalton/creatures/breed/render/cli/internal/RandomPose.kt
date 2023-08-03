@@ -8,12 +8,45 @@ import kotlin.random.Random
 val randomTrueFalse get() = (Random.nextInt(0, 100) % 2) == 0
 
 
+val C1E_Front: Pose = PoseStringUtil.fromPoseString(GameVariant.C1, "140000000000000")
+val C2E_FRONT: Pose = PoseStringUtil.fromPoseString(GameVariant.C3, "113122122111111")
+
+internal fun randomEemFooPose(variant: GameVariant, gender: Int, age: Int): Pose {
+    if (variant == GameVariant.C1) {
+        if (age >= 2) {
+            return C1E_Front
+        }
+    } else if (variant == GameVariant.C2) {
+        if (age >= 3) {
+            return C1E_Front
+        }
+    } else {
+        if (age >= 4) {
+            return C2E_FRONT
+        }
+    }
+    val pose = if (gender == 1) {
+        when (Random.nextInt(0, 3)) {
+            0 -> "323322111013311"
+            1 -> "313322100111211"
+            else -> "342010222032211"
+        }
+    } else {
+        when (Random.nextInt(0, 3)) {
+            0 -> "243322100210311"
+            1 -> "212010222220011"
+            else -> "233020332330011"
+        }
+    }
+    return PoseStringUtil.fromPoseString(variant, pose)
+}
+
 internal fun randomPose(variant: GameVariant, facingConstraint: PoseFacing? = null): Pose {
     val bodyFacing = facingConstraint ?: (when (Random.nextInt(0, 9)) {
         0, 1 -> PoseFacing.FRONT
         2 -> PoseFacing.BACK
-        3,4,5 -> PoseFacing.VIEWER_LEFT
-        6,7,8 -> PoseFacing.VIEWER_RIGHT
+        3, 4, 5 -> PoseFacing.VIEWER_LEFT
+        6, 7, 8 -> PoseFacing.VIEWER_RIGHT
         else -> throw PoseException("Invalid random facing direction")
     })
     val headAgrees = (Random.nextInt(0, 100) % 2) == 0
@@ -28,6 +61,7 @@ internal fun randomPose(variant: GameVariant, facingConstraint: PoseFacing? = nu
                     PoseFacing.VIEWER_RIGHT
                 }
             }
+
             PoseFacing.BACK -> PoseFacing.BACK
             else -> {
                 // Face should be way more likely to face front
@@ -44,8 +78,8 @@ internal fun randomPose(variant: GameVariant, facingConstraint: PoseFacing? = nu
     val body = (when (Random.nextInt(0, 8)) {
         0 -> Tilt.DOWN
         1 -> Tilt.STRAIGHT
-        2,3,4 -> Tilt.UP
-        5,6,7 -> Tilt.FAR_UP
+        2, 3, 4 -> Tilt.UP
+        5, 6, 7 -> Tilt.FAR_UP
         else -> throw PoseException("Invalid random facing direction")
     })
     val head = getRandomTilt()
@@ -88,8 +122,8 @@ private fun getArm(): Pair<Tilt, Tilt> {
         return Pair(upperArm, Tilt.FAR_UP)
     } else if (upperArm == Tilt.UP) {
         return Pair(upperArm, Tilt.fromChar('2' + Random.nextInt(0, 2))!!)
-    } else if (upperArm == Tilt.STRAIGHT){
-        return Pair(upperArm, Tilt.fromChar('1' + Random.nextInt(0,3))!!)
+    } else if (upperArm == Tilt.STRAIGHT) {
+        return Pair(upperArm, Tilt.fromChar('1' + Random.nextInt(0, 3))!!)
     } else if (upperArm == Tilt.DOWN) {
         return Pair(upperArm, getRandomTilt())
     } else {
@@ -97,7 +131,7 @@ private fun getArm(): Pair<Tilt, Tilt> {
     }
 }
 
-private fun eyesClosed(): Boolean = (Random.nextInt(0,99) % 3) == 2
+private fun eyesClosed(): Boolean = (Random.nextInt(0, 99) % 3) == 2
 
 private fun mood(variant: GameVariant): Mood {
     return if (variant.isC1e) {
@@ -107,17 +141,17 @@ private fun mood(variant: GameVariant): Mood {
     }
 }
 
-private fun getLeg():Triple<Tilt, Tilt, Tilt> {
+private fun getLeg(): Triple<Tilt, Tilt, Tilt> {
     val thigh = getRandomTilt()
     val shin = when (thigh) {
-        Tilt.FAR_UP -> Tilt.fromChar('1' + Random.nextInt(0,3))!!
+        Tilt.FAR_UP -> Tilt.fromChar('1' + Random.nextInt(0, 3))!!
         Tilt.UP, Tilt.STRAIGHT -> getRandomTilt()
-        Tilt.DOWN -> Tilt.fromChar('0' + Random.nextInt(0,3))!!
+        Tilt.DOWN -> Tilt.fromChar('0' + Random.nextInt(0, 3))!!
         else -> throw PoseException("Invalid non-concrete random tilt on thigh")
     }
     val foot = when (shin) {
         Tilt.FAR_UP, Tilt.UP -> getRandomTilt()
-        Tilt.STRAIGHT -> Tilt.fromChar('0' + Random.nextInt(0,3))!!
+        Tilt.STRAIGHT -> Tilt.fromChar('0' + Random.nextInt(0, 3))!!
         Tilt.DOWN -> Tilt.DOWN
         else -> throw PoseException("Invalid non-concrete random tilt on shin")
     }

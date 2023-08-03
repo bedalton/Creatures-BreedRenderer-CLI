@@ -9,7 +9,7 @@ import com.bedalton.creatures.common.structs.GameVariant
 
 // Create RegEx for finding if a pose has an associated file name
 private val poseWithNameRegex = "([0-5Xx!?]{15})[:,\\-=](.*)".toRegex()
-
+internal val EEMFOO_PLACEHOLDER = "@@@EEEEMFOOOOO@@"
 
 /**
  * Parses a raw list of pose strings and possibly joined with filename
@@ -31,6 +31,9 @@ internal fun parsePoseStrings(
         listOf(Pose.defaultPose(gameVariant).toPoseString())
     }
     return poseStringsNotEmpty.map { poseIn ->
+        if (poseIn.lowercase() == "eemfoo") {
+            return@map Pose.defaultPose(gameVariant) to EEMFOO_PLACEHOLDER
+        }
         parsePoseString(
             gameVariant = gameVariant,
             poseIn = poseIn,
