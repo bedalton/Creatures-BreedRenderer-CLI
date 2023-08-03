@@ -36,8 +36,9 @@ internal suspend fun getOutputFileName(
         }
 
     var temp: String
+    var j = i
     do {
-        temp = "$prefix.$i.png"
+        temp = "$prefix.${j++}.png"
     } while ((increment && localVFS.fileExists(temp)) || temp in previousFiles)
     return temp
 }
