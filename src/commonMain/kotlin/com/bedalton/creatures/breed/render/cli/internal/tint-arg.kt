@@ -8,6 +8,7 @@ import com.bedalton.log.eIf
 import com.bedalton.log.iIf
 import kotlin.random.Random
 
+private val random = Random(Random.nextInt())
 
 internal val randValues = listOf(
     "rand",
