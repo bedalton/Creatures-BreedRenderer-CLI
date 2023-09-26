@@ -45,7 +45,7 @@ version = projectVersion
 bedaltonConfig {
     jsFallback = "node"
     jsTestFallback = "node"
-    additionalLibraries += listOf("local-files")
+    additionalLibraries = listOf("local-files")
 }
 
 application {
