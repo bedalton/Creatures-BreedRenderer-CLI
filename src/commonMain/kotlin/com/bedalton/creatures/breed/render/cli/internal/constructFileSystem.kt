@@ -41,7 +41,7 @@ internal suspend fun constructFileSystem(
     }
 
     // Get file system with actual paths
-    val fsPhysical = ScopedFileSystem(sourceRootDirectories)
+    val fsPhysical = UnscopedFileSystem()
 
     val missing = sourceRootDirectories.filterNot { fsPhysical.fileExists(it) }
 
@@ -92,9 +92,6 @@ internal suspend fun constructFileSystem(
 
     // Get expected genome files
     val genomeFiles = getGenomeFiles(genomePathIn, currentWorkingDirectory, emptyList())
-    if (genomeFiles != null) {
-        fsPhysical.addSourceRoots(genomeFiles.first)
-    }
 
     val exportPathQualified = if (exportPath != null) {
         if (!PathUtil.isAbsolute(exportPath)) {
@@ -112,7 +109,6 @@ internal suspend fun constructFileSystem(
 
     if (exportPathQualified != null) {
         Log.iIf(LOG_DEBUG) { "ExportPathIn: $exportPath; Qualified: $exportPathQualified" }
-        fsPhysical.addSourceRoot(exportPathQualified)
     } else {
         Log.iIf(LOG_VERBOSE) { "No export path passed in" }
     }

@@ -5,9 +5,11 @@ import com.bedalton.creatures.common.structs.GameVariant
 import com.bedalton.app.exitNativeWithError
 import com.bedalton.common.util.PathUtil
 import com.bedalton.common.util.isNotNullOrEmpty
+import com.bedalton.common.util.trySilent
 import com.bedalton.log.LOG_DEBUG
 import com.bedalton.log.LOG_VERBOSE
 import com.bedalton.log.Log
+import com.bedalton.log.eIf
 import com.bedalton.log.iIf
 import com.bedalton.vfs.LocalFileSystem
 
@@ -20,12 +22,26 @@ internal suspend fun SourceFiles.findGameVariant(): GameVariant {
     val isC2e = files["c16"].isNotNullOrEmpty()
     Log.iIf(LOG_DEBUG) { files.entries.joinToString("\n") { "${it.key} -> Count(${it.value.size})" } }
     val isC2 = if (isC2Maybe) {
-        files["att"]?.any { path -> fs.readTextWindowsCP1252(path).split("\n").filter { it.isNotBlank() }.size == 10 } == true
+        files["att"]?.any { path ->
+            try {
+                fs.readTextWindowsCP1252(path).split("\n").filter { it.isNotBlank() }.size == 10
+            } catch (e: Exception) {
+                Log.eIf(LOG_DEBUG) { "Failed to read file: $path; ${e.formatted()}" }
+                false
+            }
+        } == true
     } else {
         false
     }
     val isC3: Boolean = if (!isC2e && isC3Maybe) {
-        files["att"]?.any { path -> fs.readTextWindowsCP1252(path).split("\n").filter { it.isNotBlank() }.size == 16 } == true
+        files["att"]?.any { path ->
+            try {
+                fs.readTextWindowsCP1252(path).split("\n").filter { it.isNotBlank() }.size == 16
+            } catch (e: Exception) {
+                Log.eIf(LOG_DEBUG) { "Failed to read C3 ATT file: $path; ${e.formatted()}" }
+                false
+            }
+        } == true
     } else {
         isC2e
     }

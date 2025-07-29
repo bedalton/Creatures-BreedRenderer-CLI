@@ -4,16 +4,20 @@ import com.bedalton.app.exitNativeWithError
 import com.bedalton.app.getCurrentWorkingDirectory
 import com.bedalton.cli.Flag
 import com.bedalton.cli.promptYesNo
+import com.bedalton.cli.stringChoiceArg
 import com.bedalton.common.structs.Pointer
 import com.bedalton.creatures.breed.render.cli.internal.*
 import com.bedalton.creatures.breed.render.renderer.getColorTransform
+import com.bedalton.creatures.breed.render.support.pose.Mood
 import com.bedalton.creatures.cli.GameArgType
 import com.bedalton.creatures.common.structs.GameVariant
+import com.bedalton.creatures.common.structs.isC1e
+import com.bedalton.creatures.common.structs.isC3DS
 import com.bedalton.creatures.genetics.genome.Genome
 import com.bedalton.log.*
 import com.bedalton.log.ConsoleColors.BOLD
 import com.bedalton.log.ConsoleColors.RESET
-import com.bedalton.vfs.*
+import com.bedalton.vfs.expandTildeIfNecessary
 import kotlinx.cli.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -196,9 +200,8 @@ class RenderBreedCommand(
         "Image padding around image. When not used with --trim, surrounding whitespace can be more than expected"
     )
 
-
-    private val mood by option(
-        MoodArg,
+    private val moodString by option(
+        stringChoiceArg(*Mood.values().map { it.name.lowercase() }.toTypedArray(), "surprised", "random", "rand"),
         "mood",
         "m",
         "The mood to render the creature in"
@@ -302,12 +305,17 @@ class RenderBreedCommand(
         }
 
         // Get working directory
+
+        Log.iIf(LOG_DEBUG) { "Getting current working directory" }
         val currentWorkingDirectory = getCurrentWorkingDirectory()
             ?.expandTildeIfNecessary() // Needed for Ubuntu
             ?.stripDotSlash()
+        Log.iIf(LOG_DEBUG) { "Got Current Working Directory: $currentWorkingDirectory" }
 
         // Combine the sources which are both globbed files, and folders
+        Log.iIf(LOG_DEBUG) { "Getting source folders" }
         val sources = getSourceFolders(sources, currentWorkingDirectory)
+        Log.iIf(LOG_DEBUG) { "Got source folders" }
 
         // Ensure not using both genome path AND export path
         if (genomePath != null && exportPath != null) {
@@ -315,14 +323,20 @@ class RenderBreedCommand(
         }
 
         // Construct file system and full paths from CLI arguments and options
+        Log.iIf(LOG_DEBUG) { "Constructing file system" }
         val finalSources = constructFileSystem(sources, currentWorkingDirectory, genomePath, exportPath)
+        Log.iIf(LOG_DEBUG) { "Constructed file system" }
 
+        Log.iIf(LOG_DEBUG) { "Getting game variant" }
         val gameVariant = gameVariant
             ?: finalSources.findGameVariant().also {
                 Log.iIf(LOG_DEBUG) { "Ascertained variant to be $it" }
             }
+        Log.iIf(LOG_DEBUG) { "Got game variant" }
 
         val randomPoses = Pointer(false)
+
+        val mood = parseMood(gameVariant, moodString)
 
         val poses = parsePoseStrings(
             gameVariant,
@@ -334,6 +348,7 @@ class RenderBreedCommand(
 
         // Get the output file system needed for writing files
         // This is different from input file system
+        Log.iIf(LOG_DEBUG) { "Getting output file system" }
         val (outputFileSystem, getOutputFile) = getFileSystemSupport(
             finalSources,
             out,
@@ -342,6 +357,7 @@ class RenderBreedCommand(
             increment,
             poses.size > 1,
         )
+        Log.iIf(LOG_DEBUG) { "Got Output File System" }
 
         val age = Pointer(age)
         val gender = Pointer(gender)
@@ -350,6 +366,7 @@ class RenderBreedCommand(
 
         val setParts = Pointer(false)
 
+        Log.iIf(LOG_DEBUG) { "Getting build task" }
         var task = buildTaskWithoutSettingTintAndBreeds(
             gameVariant = gameVariant,
             finalSources = finalSources,
@@ -368,16 +385,20 @@ class RenderBreedCommand(
             setParts = setParts,
             genomePointer = genomePointer
         )
+        Log.iIf(LOG_DEBUG) { "Got build task" }
 
 
+        Log.iIf(LOG_DEBUG) { "Getting genome transform" }
         // Get color transform from genome if any
         val genomeTransform = genomePointer.value?.getColorTransform(
             gender.value!!, // Must be non-null after buildTask
             age.value!!,
             genomeVariant.value
         )
+        Log.iIf(LOG_DEBUG) { "Got genome transform" }
 
         // Set colors overwriting genome transform as needed
+        Log.iIf(LOG_DEBUG) { "Applying swap and rotation" }
         task = applySwapAndRotation(
             task = task,
             transformVariant = transformVariant,
@@ -386,7 +407,9 @@ class RenderBreedCommand(
             swapString = swap,
             rotationString = rotation
         )
+        Log.iIf(LOG_DEBUG) { "Applied swap and rotation" }
 
+        Log.iIf(LOG_DEBUG) { "Applying breeds" }
         task = applyBreeds(
             task = task,
             gameVariant = gameVariant,
@@ -401,9 +424,11 @@ class RenderBreedCommand(
             hair = hair,
             allowNull = setParts.value
         )
+        Log.iIf(LOG_DEBUG) { "Applied breeds" }
 
         Log.iIf(LOG_DEBUG) { "CLI: " + task.toCLIOpts(false) }
 
+        Log.iIf(LOG_DEBUG) { "Replacing eemfoo poses" }
         val posesAfterEemFooReplacement = poses.map {
             if (it.second == EEMFOO_PLACEHOLDER) {
                 randomEemFooPose(gameVariant, gender.value!!, age.value!!) to null
@@ -412,22 +437,36 @@ class RenderBreedCommand(
             }
         }
 
+        Log.iIf(LOG_DEBUG) { "Poses: $posesAfterEemFooReplacement" }
+
         // Get the actual pose renderer
-        val renderer = task.poseRenderer()
+        val renderer = try {
+            task.poseRenderer()
+        } catch (e: Exception) {
+            exitNativeWithError(1, "Error getting pose renderer; ${e.formatted()}")
+        }
 
-        val wroteAll = renderPoses(
-            outputFileSystem,
-            open,
-            posesAfterEemFooReplacement,
-            getOutputFile,
-            renderer,
-        )
+        Log.iIf(LOG_DEBUG) { "Got Renderer" }
+        val wroteAll = try {
+            renderPoses(
+                outputFileSystem,
+                open,
+                posesAfterEemFooReplacement,
+                getOutputFile,
+                renderer,
+            )
+        } catch (e: Exception) {
+            exitNativeWithError(1, "Error rendering all poses; ${e.formatted()}")
+        }
 
+        Log.iIf(LOG_DEBUG) { "Rendered All Poses? $wroteAll" }
         if (usesRandom) {
             logValuesForRandom(task, poses.map { it.first }, args)
         }
 
         if (loop) {
+
+            Log.iIf(LOG_DEBUG) { "Looping random color renderer Renderer" }
             if (!usesRandom && !randomPoses.value) {
                 Log.e { "Cannot loop rendering without random colors or poses" }
             } else {
@@ -451,5 +490,57 @@ class RenderBreedCommand(
     }
 
 
-}
+    private fun parseMood(variant: GameVariant, moodString: String?): Mood? {
+        val moodStringLower = moodString?.lowercase()
+            ?: return null
 
+        Mood.fromString(moodStringLower)?.let { mood ->
+            return mood
+        }
+
+        if (moodString === "surprised") {
+            return Mood.SCARED
+        }
+
+        if (moodString.lowercase() == "random" || moodString.lowercase() == "rand") {
+            return randomMood(variant)
+        }
+
+        Log.eIf(LOG_DEBUG) {
+            "Unable to convert mood string: <$moodString> to concrete mood value"
+        }
+        return null
+
+    }
+
+    private fun randomMood(variant: GameVariant): Mood? {
+
+        val moods = when {
+            variant.isC1e -> listOf(
+                Mood.NORMAL,
+                Mood.HAPPY,
+                Mood.SAD,
+                Mood.ANGRY,
+            )
+
+            variant == GameVariant.CV -> Mood.values().toList()
+
+            variant.isC3DS -> listOf(
+                Mood.NORMAL,
+                Mood.HAPPY,
+                Mood.SAD,
+                Mood.ANGRY,
+                Mood.SLEEPY,
+                Mood.SCARED
+            )
+            else -> {
+                Log.eIf(LOG_DEBUG) {
+                    "Cannot understand variant <$variant> for random mood"
+                }
+                return null
+            }
+        }
+        return moods.random()
+    }
+
+}

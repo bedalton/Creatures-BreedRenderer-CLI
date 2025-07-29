@@ -1,12 +1,16 @@
 package com.bedalton.creatures.breed.render.cli.internal
 
+import com.bedalton.common.util.joinToString
 import com.bedalton.creatures.breed.render.support.pose.Mood
 import com.bedalton.creatures.breed.render.support.pose.Pose
 import com.bedalton.creatures.breed.render.support.pose.PoseFacing
 import com.bedalton.creatures.breed.render.support.pose.PoseStringUtil
 import com.bedalton.creatures.common.structs.GameVariant
+import com.bedalton.log.LOG_DEBUG
+import com.bedalton.log.Log
+import com.bedalton.log.iIf
 
-internal val randomPoseRegex = "(rand(?:om)?)([(-:=].+[)]?)?".toRegex(RegexOption.IGNORE_CASE)
+internal val randomPoseRegex = "(rand(?:om)?)(?:[(-:=](.+)[)]?)?".toRegex(RegexOption.IGNORE_CASE)
 
 internal fun resolvePose(variant: GameVariant, pose: String, mood: Mood?, eyesClosed: Boolean?): Pose {
     val randomValues = randomPoseRegex
@@ -14,7 +18,12 @@ internal fun resolvePose(variant: GameVariant, pose: String, mood: Mood?, eyesCl
         ?.groupValues
         ?.drop(1)
     return when (randomValues?.size) {
-        1 -> randomPose(variant)
+        1 -> {
+            randomPose(variant).copy(
+                mood = mood,
+                eyesClosed = eyesClosed
+            )
+        }
         2 -> {
             val direction = getDirectionForRandomPose(randomValues[1])
             randomPose(variant, direction).copy(
@@ -67,8 +76,9 @@ internal fun resolvePose(variant: GameVariant, pose: String, mood: Mood?, eyesCl
 }
 
 private fun getDirectionForRandomPose(directionString: String): PoseFacing? {
+    val directionStringNormalized = directionString.lowercase().replace("[^a-z]+".toRegex(), "")
     @Suppress("SpellCheckingInspection")
-    return when (directionString.replace("[^a-z]+", "").lowercase()) {
+    return when (directionStringNormalized) {
         "left", "l", "west", "3" -> PoseFacing.VIEWER_LEFT
         "right", "r", "east", "2" -> PoseFacing.VIEWER_RIGHT
         "front", "forward", "f", "south", "1" -> PoseFacing.FRONT

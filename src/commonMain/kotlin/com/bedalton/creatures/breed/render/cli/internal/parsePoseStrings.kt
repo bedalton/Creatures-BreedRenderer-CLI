@@ -32,7 +32,7 @@ internal fun parsePoseStrings(
     }
     return poseStringsNotEmpty.map { poseIn ->
         if (poseIn.lowercase() == "eemfoo") {
-            return@map Pose.defaultPose(gameVariant) to EEMFOO_PLACEHOLDER
+            return@map Pose.defaultPose(gameVariant).copy(mood = mood, eyesClosed = eyesClosed) to EEMFOO_PLACEHOLDER
         }
         parsePoseString(
             gameVariant = gameVariant,
@@ -56,7 +56,7 @@ private fun parsePoseString(
         ?.groupValues
         ?.drop(1)
     val pose = temp?.getOrNull(0) ?: poseIn
-    if (randomPoseRegex.matches(pose.trim() ?: "")) {
+    if (randomPoseRegex.matches(pose.trim())) {
         randomPoses.value = true
     }
     val fileName = temp?.getOrNull(1)

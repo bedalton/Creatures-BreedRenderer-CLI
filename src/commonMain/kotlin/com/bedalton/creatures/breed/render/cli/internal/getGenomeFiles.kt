@@ -185,7 +185,7 @@ private suspend fun readGenomeFromEgg(genomeBytes: ByteArray, genomeVariant: Int
     val eggGenome = egg[genomeIndex] ?: egg.mum
 
     return try {
-        Pair(eggGenome.genome(), gender)
+        Pair(eggGenome.genome, gender)
     } catch (e: Exception) {
         exitNativeWithError(ERROR_CODE__BAD_INPUT_FILE, "Failed to parse egg genome; ${e.formatted()}")
     }

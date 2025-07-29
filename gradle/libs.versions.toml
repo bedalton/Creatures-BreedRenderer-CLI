@@ -1,0 +1,50 @@
+[versions]
+# Kotlin/Kotlinx
+kotlinx-coroutines = "1.7.2"
+kotlinx-nodejs = "0.0.7"
+kotlinx-cli = "0.3.5"
+
+# NPM
+npm-glob = "7.2.0"
+npm-pako = "2.0.4"
+
+# Bedalton Common
+bedalton-app-support = "0.1.0"
+bedalton-common-byte = "0.1.0"
+bedalton-common-core = "0.1.0"
+bedalton-common-coroutines = "0.1.0"
+bedalton-common-files = "0.1.0"
+bedalton-common-log = "0.1.0"
+
+# Bedalton Creatures
+bedalton-creatures-c2egg-parser = "0.1.0"
+bedalton-creatures-breed-renderer = "0.1.0"
+bedalton-creatures-cli = "0.1.0"
+bedalton-creatures-minimal-export-parser = "0.1.0"
+bedalton-creatures-pray-data = "0.1.0"
+
+[libraries]
+
+# Kotlin/Kotlinx
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+
+kotlinx-cli = { module = "org.jetbrains.kotlinx:kotlinx-cli", version.ref = "kotlinx-cli" }
+kotlinx-jvm-cli = { module = "org.jetbrains.kotlinx:kotlinx-cli-jvm", version.ref = "kotlinx-cli" }
+kotlinx-nodejs = { module = "org.jetbrains.kotlinx:kotlinx-nodejs", version.ref = "kotlinx-nodejs" }
+
+
+# Bedalton Common
+bedalton-app-support = { module = "com.bedalton:bedalton-app-support", version.ref = "bedalton-app-support" }
+bedalton-common-byte = { module = "com.bedalton:bedalton-common-byte", version.ref = "bedalton-common-byte" }
+bedalton-common-core = { module = "com.bedalton:bedalton-common-core", version.ref = "bedalton-common-core" }
+bedalton-common-coroutines = { module = "com.bedalton:bedalton-common-coroutines", version.ref = "bedalton-common-coroutines" }
+bedalton-common-files = { module = "com.bedalton:bedalton-common-files", version.ref = "bedalton-common-files" }
+bedalton-common-log = { module = "com.bedalton:bedalton-common-log", version.ref = "bedalton-common-log" }
+
+# Bedalton Creatures
+bedalton-creatures-c2eggparser = { module = "com.bedalton.creatures:creatures-c2-egg-parser", version.ref = "bedalton-creatures-c2egg-parser" }
+bedalton-creatures-breed-renderer = { module = "com.bedalton.creatures:creatures-breed-renderer", version.ref = "bedalton-creatures-breed-renderer" }
+bedalton-creatures-common-cli = { module = "com.bedalton.creatures:creatures-common-cli", version.ref = "bedalton-creatures-cli" }
+bedalton-creatures-export-parser = { module = "com.bedalton.creatures:creatures-minimal-export-parser", version.ref = "bedalton-creatures-minimal-export-parser" }
+bedalton-creatures-pray-data = { module = "com.bedalton.creatures:creatures-pray-data", version.ref = "bedalton-creatures-pray-data" }

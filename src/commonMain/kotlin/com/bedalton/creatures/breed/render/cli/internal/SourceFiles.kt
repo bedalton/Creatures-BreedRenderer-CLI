@@ -1,9 +1,9 @@
 package com.bedalton.creatures.breed.render.cli.internal
 
-import com.bedalton.creatures.exports.minimal.ExportRenderData
 import com.bedalton.app.exitNativeWithError
 import com.bedalton.common.coroutines.LockingDataCache
 import com.bedalton.creatures.exports.minimal.ExportParser
+import com.bedalton.creatures.exports.minimal.MinimalExportData
 import com.bedalton.log.LOG_VERBOSE
 import com.bedalton.log.Log
 import com.bedalton.log.iIf
@@ -30,11 +30,11 @@ internal data class SourceFiles(
         fs.findFirst(file, refresh = true, recursive = true, filter = filter::matches)
     }
 
-    val exportData: LockingDataCache<List<ExportRenderData>> = LockingDataCache {
+    val exportData: LockingDataCache<List<MinimalExportData>> = LockingDataCache {
         if (exportPath != null) {
             Log.i { "Parsing export in data cache" }
             try {
-                ExportParser.parseExport(fs, exportPath)
+                ExportParser.parseExport(fs.read(exportPath), exportPath)
             } catch (e: Exception) {
                 exitNativeWithError(1, "Failed to parse export; ${e.formatted()}")
             }

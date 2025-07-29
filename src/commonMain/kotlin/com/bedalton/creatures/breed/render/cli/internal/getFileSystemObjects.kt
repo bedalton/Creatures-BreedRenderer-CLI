@@ -8,7 +8,7 @@ import com.bedalton.log.Log
 import com.bedalton.log.iIf
 import com.bedalton.vfs.FileSystem
 import com.bedalton.vfs.LocalFileSystem
-import com.bedalton.vfs.ScopedFileSystem
+import com.bedalton.vfs.UnscopedFileSystem
 
 internal suspend fun getFileSystemSupport(
     sourceFiles: SourceFiles,
@@ -44,12 +44,11 @@ internal suspend fun getFileSystemSupport(
     } ?: PathUtil.getWithoutLastPathComponent(outQualified)
 
 
-    val outputFileSystem = ScopedFileSystem(
-        listOfNotNull(
-            currentWorkingDirectory,
-            outFsPath
-        )
+    listOfNotNull(
+        currentWorkingDirectory,
+        outFsPath
     )
+    val outputFileSystem = UnscopedFileSystem()
 
     val getOutputName = getOutActual(
         fs = outputFileSystem,

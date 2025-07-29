@@ -62,7 +62,7 @@ repositories {
 kotlin {
     jvm {
         compilations.all {
-            kotlinOptions.jvmTarget = "11"
+            kotlinOptions.jvmTarget = "17"
         }
         withJava()
         testRuns["test"].executionTask.configure {
@@ -167,37 +167,38 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 // Kotlin / KotlinX
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
-                implementation("org.jetbrains.kotlinx:kotlinx-cli:$kotlinxCliVersion")
+                implementation(libs.kotlinx.coroutines.core)
+                implementation(libs.kotlinx.cli)
 
-                implementation("com.bedalton.creatures:breed-renderer:$creaturesRendererVersion")
-                implementation("com.bedalton.creatures:creatures-common-cli:$creaturesCommonCLIVersion")
-                implementation("com.bedalton.creatures:c2-egg-parser:$creaturesC2EggParserVersion")
-                implementation("com.bedalton.creatures:pray-data:$creaturesPrayDataVersion")
-                implementation("com.bedalton.creatures:minimal-export-parser:$creaturesMinimalExportParser")
+                implementation(libs.bedalton.app.support)
+                implementation(libs.bedalton.common.byte)
+                implementation(libs.bedalton.common.core)
+                implementation(libs.bedalton.common.coroutines)
+                implementation(libs.bedalton.common.files)
+                implementation(libs.bedalton.common.log)
 
-                implementation("com.bedalton:common-core:$bedaltonCommonCoreVersion")
-                implementation("com.bedalton:app-support:$bedaltonAppSupportVersion")
-                implementation("com.bedalton:common-coroutines:$bedaltonCommonCoroutinesVersion")
-                implementation("com.bedalton:common-log:$bedaltonCommonLogVersion")
-                implementation("com.bedalton:local-files:$bedaltonLocalFilesVersion")
-                implementation("com.bedalton:common-byte:$bedaltonCommonByteVersion")
+                implementation(libs.bedalton.creatures.breed.renderer)
+                implementation(libs.bedalton.creatures.common.cli)
+                implementation(libs.bedalton.creatures.c2eggparser)
+                implementation(libs.bedalton.creatures.pray.data)
+                implementation(libs.bedalton.creatures.export.parser)
+
 
             }
         }
         val commonTest by getting {
             dependencies {
                 implementation(kotlin("test"))
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:$coroutinesVersion")
+                implementation(libs.kotlinx.coroutines.test)
             }
         }
         val jvmMain by getting
         val jvmTest by getting
         val jsMain by getting {
             dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-nodejs:0.0.7")
-                implementation(npm("glob", "7.2.0"))
-                implementation(npm("pako", "2.1.0"))
+                implementation(libs.kotlinx.nodejs)
+                implementation(npm("glob", libs.versions.npm.glob.get()))
+                implementation(npm("pako", libs.versions.npm.pako.get()))
             }
         }
         val jsTest by getting
@@ -252,8 +253,8 @@ tasks {
         val javaModuleName: String by project
         modularity.inferModulePath.set(true)
         inputs.property("moduleName", javaModuleName)
-        targetCompatibility = "11"
-        sourceCompatibility = "11"
+        targetCompatibility = "17"
+        sourceCompatibility = "17"
         doFirst {
             options.compilerArgs = listOf(
                 "--module-path", classpath.asPath,
@@ -301,3 +302,34 @@ tasks.withType<ShadowJar> {
     configurations += main.compileDependencyFiles as Configuration
     configurations += main.runtimeDependencyFiles as Configuration
 }
+
+val allNativeTargets = listOf(
+    "LinuxArm64",
+    "LinuxX64",
+    "MacosArm64",
+    "MacosX64",
+    "MingwX64"
+)
+
+fun groupNativeCompileTasks(kind: String) {
+    for (target in allNativeTargets) {
+        val task = tasks.getByName("link${kind.capitalize()}Executable${target.capitalize()}")
+        task.group = "kotlin native ${kind.toLowerCase()}"
+    }
+}
+
+
+fun registerCompileAllNativeTargetsTask(kind: String, targets: List<String> = allNativeTargets): TaskProvider<Task> {
+    return tasks.register("compileAll${kind.capitalize()}NativeTargets") {
+        group = "kotlin native ${kind.toLowerCase()}"
+        for (target in targets) {
+            val task = tasks.getByName("link${kind.capitalize()}Executable${target.capitalize()}")
+            dependsOn(task)
+        }
+    }
+}
+
+groupNativeCompileTasks("release")
+groupNativeCompileTasks("debug")
+registerCompileAllNativeTargetsTask("release")
+registerCompileAllNativeTargetsTask("debug")

@@ -16,3 +16,5 @@ ios.xcworkspace/
 .externalNativeBuild
 **/.DS_Store
 C1 Swap and Rotate.md
+
+.kotlin/

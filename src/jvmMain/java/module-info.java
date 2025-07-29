@@ -1,7 +1,7 @@
 module com.bedalton.creatures.renderer.cli {
     requires kotlin.stdlib;
     requires kotlinx.coroutines.core;
-    requires kotlinx.cli;
+    requires kotlinx.cli.jvm;
 
     requires com.bedalton.coroutines;
     requires com.bedalton.common;

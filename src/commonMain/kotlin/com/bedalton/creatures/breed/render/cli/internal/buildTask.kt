@@ -89,7 +89,7 @@ internal suspend fun buildTaskWithoutSettingTintAndBreeds(
         val export = exportData.first()
         genome = export.genome
         genderActual = genderActual ?: (export.gender?.let { it + 1 })
-        ageActual = ageActual ?: export.age
+        ageActual = ageActual ?: export.lifeStage
     }
 
 

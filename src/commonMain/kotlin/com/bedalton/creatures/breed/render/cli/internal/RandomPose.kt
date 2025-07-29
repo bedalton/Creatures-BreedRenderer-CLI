@@ -49,7 +49,7 @@ internal fun randomPose(variant: GameVariant, facingConstraint: PoseFacing? = nu
         6, 7, 8 -> PoseFacing.VIEWER_RIGHT
         else -> throw PoseException("Invalid random facing direction")
     })
-    val headAgrees = (Random.nextInt(0, 100) % 2) == 0
+    val headAgrees = (Random.nextInt(0, 99) % 3) != 0
     val headFacing = if (headAgrees) {
         bodyFacing
     } else {
@@ -61,15 +61,14 @@ internal fun randomPose(variant: GameVariant, facingConstraint: PoseFacing? = nu
                     PoseFacing.VIEWER_RIGHT
                 }
             }
-
             PoseFacing.BACK -> PoseFacing.BACK
             else -> {
                 // Face should be way more likely to face front
-                val faceFront = (Random.nextInt(0, 100) % 5) > 0
-                if (faceFront) {
-                    PoseFacing.FRONT
-                } else {
-                    PoseFacing.BACK
+                val facing = (Random.nextInt(0, 32) % 4)
+                when (facing) {
+                    0 -> PoseFacing.FRONT
+                    1 -> PoseFacing.BACK
+                    else -> bodyFacing
                 }
             }
         }
